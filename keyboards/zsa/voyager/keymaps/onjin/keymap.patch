@@ -1,0 +1,31 @@
+8,14c
+enum custom_keycodes {
+  L2SFT_ENT = ZSA_SAFE_RANGE,
+  RGB_SLD,
+  HSV_246_109_243,
+  HSV_74_255_255,
+  HSV_155_115_250,
+  ST_MACRO_0,
+};
+.
+g/LT(2, KC_ENTER),LT(2, KC_SPACE)/s//L2SFT_ENT,      LT(2, KC_SPACE)/
+279a
+static uint16_t l2sft_timer;
+.
+297a
+  case L2SFT_ENT:
+    if (record->event.pressed) {
+      l2sft_timer = timer_read();
+      register_mods(MOD_BIT(KC_LSFT));
+      layer_on(2);
+    } else {
+      layer_off(2);
+      unregister_mods(MOD_BIT(KC_LSFT));
+      if (timer_elapsed(l2sft_timer) < TAPPING_TERM) {
+        tap_code(KC_ENTER);
+      }
+    }
+    return false;
+.
+w
+q
