@@ -1,59 +1,17 @@
-# QMK Userspace
+# Building your layout from source
 
-This is a template repository which allows for an external set of QMK keymaps to be defined and compiled. This is useful for users who want to maintain their own keymaps without having to fork the main QMK repository.
+Congratulations on taking the next step, and making use of your keyboard's open-source nature! There's so much you can do with QMK. 
 
-## Howto configure your build targets
+Here's how to get started compiling your own firmware:
+1. Choose whether to build your layout against ZSA's QMK fork or mainline QMK. Using ZSA's fork means your firmware will compile easily, but it is slower to update and does not pull all the new features of mainline QMK. Mainline is the bleeding edge, but you will probably need to debug some compiler errors when setting up your layout for the first time.
+2. Use the documentation at [docs.qmk.fm](https://docs.qmk.fm/) to set up your environment for building your firmware.
+	- If you would like to compile against ZSA's fork,  make sure to manually set the path when going through the setup: [https://github.com/zsa/qmk_firmware/](https://github.com/zsa/qmk_firmware/) (ZSA's QMK fork). Otherwise, the setup process will default to mainline QMK (qmk/qmk_firmware).
+		- ZSA's QMK fork will default to the current firmware revision, but it is possible to compile against other revisions by specifying the relevant branch. You can see what firmware revision a layout was compiled against in Oryx by looking at the badge at the top right, e.g. "firmware v24.0", "firmware v23.0" etc.
+        3. Create a folder with a simple name and no spaces for your layout inside the qmk_firmware/keyboards/zsa/voyager/keymaps/ folder.
+	- Optionally, you can instead use an external userspace: https://docs.qmk.fm/newbs_external_userspace
+4. Copy the contents of the \*\_source folder (in the .zip you downloaded from Oryx) into this folder.
+5. Make sure you've set up your environment for compiling per the [QMK docs](https://docs.qmk.fm/#/newbs_getting_started?id=set-up-your-environment).
+6. From your shell, make sure your working directory is qmk_firmware, then enter the command `qmk compile`. If you haven't set up a default keyboard and layout through the QMK docs, you'll need to specify these manually: `qmk compile -kb <your-keyboard> -km <your-layout-folder-name>`. 
+7. To flash, enter the command `qmk flash`, then put your board into bootloader mode with the reset button. 
 
-1. Run the normal `qmk setup` procedure if you haven't already done so -- see [QMK Docs](https://docs.qmk.fm/#/newbs) for details.
-1. Fork this repository
-1. Clone your fork to your local machine
-1. Enable userspace in QMK config using `qmk config user.overlay_dir="$(realpath qmk_userspace)"`
-1. Add a new keymap for your board using `qmk new-keymap`
-    * This will create a new keymap in the `keyboards` directory, in the same location that would normally be used in the main QMK repository. For example, if you wanted to add a keymap for the Planck, it will be created in `keyboards/planck/keymaps/<your keymap name>`
-    * You can also create a new keymap using `qmk new-keymap -kb <your_keyboard> -km <your_keymap>`
-    * Alternatively, add your keymap manually by placing it in the location specified above.
-    * `layouts/<layout name>/<your keymap name>/keymap.*` is also supported if you prefer the layout system
-1. Add your keymap(s) to the build by running `qmk userspace-add -kb <your_keyboard> -km <your_keymap>`
-    * This will automatically update your `qmk.json` file
-    * Corresponding `qmk userspace-remove -kb <your_keyboard> -km <your_keymap>` will delete it
-    * Listing the build targets can be done with `qmk userspace-list`
-1. Commit your changes
-
-## Howto build with GitHub
-
-1. In the GitHub Actions tab, enable workflows
-1. Push your changes above to your forked GitHub repository
-1. Look at the GitHub Actions for a new actions run
-1. Wait for the actions run to complete
-1. Inspect the Releases tab on your repository for the latest firmware build
-
-## Howto build locally
-
-1. Run the normal `qmk setup` procedure if you haven't already done so -- see [QMK Docs](https://docs.qmk.fm/#/newbs) for details.
-1. Fork this repository
-1. Clone your fork to your local machine
-1. `cd` into this repository's clone directory
-1. Set global userspace path: `qmk config user.overlay_dir="$(realpath .)"` -- you MUST be located in the cloned userspace location for this to work correctly
-    * This will be automatically detected if you've `cd`ed into your userspace repository, but the above makes your userspace available regardless of your shell location.
-1. Compile normally: `qmk compile -kb your_keyboard -km your_keymap` or `make your_keyboard:your_keymap`
-
-Alternatively, if you configured your build targets above, you can use `qmk userspace-compile` to build all of your userspace targets at once.
-
-## Extra info
-
-If you wish to point GitHub actions to a different repository, a different branch, or even a different keymap name, you can modify `.github/workflows/build_binaries.yml` to suit your needs.
-
-To override the `build` job, you can change the following parameters to use a different QMK repository or branch:
-```
-    with:
-      qmk_repo: qmk/qmk_firmware
-      qmk_ref: master
-```
-
-If you wish to manually manage `qmk_firmware` using git within the userspace repository, you can add `qmk_firmware` as a submodule in the userspace directory instead. GitHub Actions will automatically use the submodule at the pinned revision if it exists, otherwise it will use the default latest revision of `qmk_firmware` from the main repository.
-
-This can also be used to control which fork is used, though only upstream `qmk_firmware` will have support for external userspace until other manufacturers update their forks.
-
-1. (First time only) `git submodule add https://github.com/qmk/qmk_firmware.git`
-1. (To update) `git submodule update --init --recursive`
-1. Commit your changes to your userspace repository
+Good luck on your journey! If you would like to maintain your Oryx layout with custom QMK functionality, check out this [community-made tool to add custom QMK features to your Oryx layout](https://blog.zsa.io/oryx-custom-qmk-features/). And remember, if you get stuck, you can always get back to your [original layout](https://configure.zsa.io/voyager/layouts/7ORbb/6aG3wB/0) from Oryx.
