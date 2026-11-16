@@ -1,0 +1,1458 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Taipo trainer</title>
+<!--
+  Typing trainer for the Taipo layout in taipo.c (layer 1).
+  The CHORDS map below must match the chords[] table in taipo.c.
+  The keyboard sends finished characters, so the page reads plain keydown events.
+-->
+<style>
+:root {
+  --bg: #f4f3ee; --panel: #ffffff; --ink: #1f1e1b; --mute: #6f6d66; --line: #dddad0;
+  --key: #ecebe4; --key-ink: #3a3935;
+  --fing: #3b6fe0; --outer: #1c9a6c; --inner: #d9822b;
+  --ok: #2b8a57; --err: #d23c3c; --cur: #fff1b8; --done: #a3a097;
+  --shadow: 0 1px 2px rgba(0,0,0,.06), 0 2px 8px rgba(0,0,0,.05);
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #17181b; --panel: #202226; --ink: #e9e7e1; --mute: #9a988f; --line: #33353b;
+    --key: #2b2e34; --key-ink: #c9c7c0;
+    --fing: #5b8cff; --outer: #34c08d; --inner: #f0a24f;
+    --ok: #4cc287; --err: #ff6b6b; --cur: #4a4220; --done: #6a6860;
+    --shadow: 0 1px 2px rgba(0,0,0,.3);
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #17181b; --panel: #202226; --ink: #e9e7e1; --mute: #9a988f; --line: #33353b;
+  --key: #2b2e34; --key-ink: #c9c7c0;
+  --fing: #5b8cff; --outer: #34c08d; --inner: #f0a24f;
+  --ok: #4cc287; --err: #ff6b6b; --cur: #4a4220; --done: #6a6860;
+  --shadow: 0 1px 2px rgba(0,0,0,.3);
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; }
+body {
+  background: var(--bg); color: var(--ink);
+  font: 15px/1.45 system-ui, -apple-system, "Segoe UI", sans-serif;
+}
+.mono { font-family: ui-monospace, "JetBrains Mono", "Fira Code", "Cascadia Code", Menlo, monospace; }
+button, select, input, textarea { font: inherit; color: inherit; }
+button {
+  background: var(--key); border: 1px solid var(--line); border-radius: 7px;
+  padding: 5px 11px; cursor: pointer;
+}
+button:hover { border-color: var(--mute); }
+button.primary { background: var(--fing); border-color: var(--fing); color: #fff; }
+select, input[type=text], input[type=number], textarea {
+  background: var(--panel); border: 1px solid var(--line); border-radius: 7px; padding: 4px 8px;
+}
+
+header {
+  display: flex; align-items: center; gap: 18px; padding: 10px 18px;
+  border-bottom: 1px solid var(--line); background: var(--panel);
+  position: sticky; top: 0; z-index: 5;
+}
+header h1 { font-size: 17px; margin: 0; letter-spacing: .2px; }
+header h1 span { color: var(--fing); }
+nav.tabs { display: flex; gap: 4px; }
+nav.tabs button { background: transparent; border-color: transparent; }
+nav.tabs button.active { background: var(--key); border-color: var(--line); font-weight: 600; }
+.live { margin-left: auto; display: flex; gap: 18px; font-variant-numeric: tabular-nums; color: var(--mute); }
+.live b { color: var(--ink); font-size: 17px; }
+
+.app { display: grid; grid-template-columns: 270px 1fr; min-height: calc(100vh - 52px); }
+aside {
+  border-right: 1px solid var(--line); padding: 10px 8px 30px; overflow-y: auto;
+  max-height: calc(100vh - 52px); position: sticky; top: 52px;
+}
+aside h3 {
+  font-size: 11px; text-transform: uppercase; letter-spacing: .8px; color: var(--mute);
+  margin: 16px 8px 4px;
+}
+aside .item {
+  display: flex; justify-content: space-between; gap: 6px; width: 100%; text-align: left;
+  background: transparent; border: 0; border-radius: 6px; padding: 5px 8px; font-size: 14px;
+}
+aside .item:hover { background: var(--key); }
+aside .item.active { background: var(--fing); color: #fff; }
+aside .item .best { font-size: 11px; color: var(--mute); white-space: nowrap; font-variant-numeric: tabular-nums; }
+aside .item.active .best { color: #e6ecff; }
+
+main { padding: 16px 22px 40px; min-width: 0; }
+.view { display: none; }
+.view.active { display: block; }
+
+.lesson-head { display: flex; align-items: baseline; gap: 12px; flex-wrap: wrap; }
+.lesson-head h2 { margin: 0; font-size: 20px; }
+.lesson-head .desc { color: var(--mute); }
+.toolbar {
+  display: flex; flex-wrap: wrap; gap: 8px 16px; align-items: center; margin: 10px 0 12px;
+  color: var(--mute); font-size: 13.5px;
+}
+.toolbar label { display: inline-flex; gap: 6px; align-items: center; }
+.toolbar .spacer { flex: 1; }
+
+.progress { height: 4px; background: var(--key); border-radius: 2px; overflow: hidden; margin-bottom: 8px; }
+.progress div { height: 100%; width: 0; background: var(--fing); transition: width .15s; }
+
+.textwrap { position: relative; }
+#text {
+  position: relative; background: var(--panel); border: 1px solid var(--line); border-radius: 10px;
+  box-shadow: var(--shadow); padding: 18px 22px; font-size: 22px; line-height: 1.7;
+  white-space: pre-wrap; word-break: break-word; tab-size: 4;
+  max-height: 38vh; min-height: 120px; overflow-y: auto;
+}
+#text.code { font-size: 18px; line-height: 1.6; }
+#text span { border-radius: 3px; }
+#text .ok { color: var(--done); }
+#text .fix { color: var(--err); opacity: .55; }
+#text .bad { color: #fff; background: var(--err); }
+#text .skip { color: var(--done); opacity: .4; }
+#text .ws { color: var(--done); opacity: .35; }
+#text .cur { background: var(--cur); box-shadow: inset 0 -3px 0 var(--fing); color: var(--ink); opacity: 1; }
+#text .cur.err { box-shadow: inset 0 -3px 0 var(--err); animation: shake .18s; }
+@keyframes shake { 25% { transform: translateX(-2px); } 75% { transform: translateX(2px); } }
+
+.result {
+  position: absolute; inset: 0; display: none; align-items: center; justify-content: center;
+  background: color-mix(in srgb, var(--panel) 92%, transparent); border-radius: 10px;
+}
+.result.show { display: flex; }
+.result .box { text-align: center; }
+.result .nums { display: flex; gap: 30px; justify-content: center; margin: 4px 0 10px; }
+.result .nums div { display: flex; flex-direction: column; }
+.result .nums b { font-size: 30px; font-variant-numeric: tabular-nums; }
+.result .nums span { color: var(--mute); font-size: 12px; text-transform: uppercase; letter-spacing: .6px; }
+.result .missed { color: var(--mute); margin-bottom: 12px; }
+.result .missed code { color: var(--err); font-size: 16px; padding: 0 3px; }
+.result .btns { display: flex; gap: 8px; justify-content: center; flex-wrap: wrap; }
+.result .keyhint { color: var(--mute); font-size: 12px; margin-top: 8px; }
+
+.hintline {
+  display: flex; align-items: center; gap: 16px; margin: 16px 0 6px; min-height: 52px;
+}
+.hintline .big {
+  font-size: 34px; min-width: 64px; height: 52px; padding: 0 10px; display: flex; align-items: center;
+  justify-content: center; background: var(--panel); border: 1px solid var(--line); border-radius: 10px;
+}
+.hintline .what { font-size: 15px; }
+.hintline .what .q { color: var(--mute); font-size: 13px; }
+.hintline .wrong { color: var(--err); font-size: 14px; }
+
+.kbd { display: flex; gap: 48px; justify-content: center; margin: 8px 0 4px; flex-wrap: wrap; }
+.hand { display: grid; grid-template-columns: repeat(4, 62px); grid-auto-rows: 58px; gap: 6px; }
+.hand .key {
+  background: var(--key); color: var(--key-ink); border-radius: 9px; border: 1px solid var(--line);
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  transition: background .08s, transform .08s; position: relative;
+}
+.hand .key b { font-size: 20px; font-weight: 600; }
+.hand .key small { position: absolute; right: 6px; bottom: 3px; font-size: 10px; color: var(--mute); }
+.hand .key.on { background: var(--fing); color: #fff; border-color: var(--fing); transform: translateY(1px); }
+.hand .key.on small { color: #dfe7ff; }
+.hand .thumb b { font-size: 13px; }
+.hand .thumb.o.on { background: var(--outer); border-color: var(--outer); color: #fff; }
+.hand .thumb.i.on { background: var(--inner); border-color: var(--inner); color: #fff; }
+.hand .home { box-shadow: inset 0 -3px 0 var(--line); }
+.handlabel { grid-column: 1 / -1; text-align: center; font-size: 12px; color: var(--mute); height: 18px; }
+.hand { grid-template-rows: 18px 58px 58px 58px; }
+
+.legend { display: flex; gap: 16px; justify-content: center; color: var(--mute); font-size: 12.5px; margin-top: 6px; flex-wrap: wrap; }
+.legend i { display: inline-block; width: 11px; height: 11px; border-radius: 3px; vertical-align: -1px; margin-right: 4px; }
+
+.next { display: flex; gap: 14px; justify-content: center; margin-top: 14px; min-height: 64px; }
+.next .n { display: flex; flex-direction: column; align-items: center; gap: 3px; opacity: .75; }
+.next .n:first-child { opacity: 1; }
+.next .n span { font-size: 15px; }
+
+/* mini chord diagram */
+.mini {
+  display: inline-grid; grid-template-columns: repeat(4, 11px); grid-auto-rows: 11px; gap: 2px;
+  vertical-align: middle;
+}
+.mini i { background: var(--key); border: 1px solid var(--line); border-radius: 2px; }
+.mini i.on { background: var(--fing); border-color: var(--fing); }
+.mini i.t { border-radius: 50%; }
+.mini i.t.o.on { background: var(--outer); border-color: var(--outer); }
+.mini i.t.i.on { background: var(--inner); border-color: var(--inner); }
+.mini i.gap { visibility: hidden; }
+.then { color: var(--mute); margin: 0 3px; font-size: 12px; }
+
+/* cheat sheet */
+.sheet h3 { margin: 22px 0 8px; font-size: 15px; }
+.sheet .note { color: var(--mute); font-size: 13.5px; max-width: 900px; }
+.tiles { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 8px; }
+.tile {
+  background: var(--panel); border: 1px solid var(--line); border-radius: 9px; padding: 8px 10px;
+  display: grid; grid-template-columns: auto 1fr; gap: 4px 10px; align-items: center; cursor: pointer;
+  border-left: 4px solid var(--line);
+}
+.tile:hover { border-color: var(--mute); }
+.tile.good { border-left-color: var(--ok); }
+.tile.mid { border-left-color: var(--inner); }
+.tile.bad { border-left-color: var(--err); }
+.tile .outs { display: flex; gap: 8px; align-items: baseline; flex-wrap: wrap; }
+.tile .outs .b0 { font-size: 22px; font-weight: 600; min-width: 18px; }
+.tile .outs .b1 { color: var(--outer); }
+.tile .outs .b2 { color: var(--inner); }
+.tile .fing { grid-column: 1 / -1; font-size: 11.5px; color: var(--mute); }
+table.plain { border-collapse: collapse; font-size: 14px; }
+table.plain td, table.plain th { padding: 4px 12px 4px 0; text-align: left; border-bottom: 1px solid var(--line); }
+table.plain th { color: var(--mute); font-weight: 500; font-size: 12.5px; }
+table.plain td.num { text-align: right; font-variant-numeric: tabular-nums; }
+.bar { display: inline-block; height: 8px; background: var(--err); border-radius: 2px; vertical-align: middle; }
+
+/* custom text */
+.custom { display: grid; gap: 10px; max-width: 980px; }
+.custom textarea { width: 100%; min-height: 260px; font-size: 14px; resize: vertical; }
+.custom .row { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+.custom .saved { display: grid; gap: 6px; }
+.custom .saved .s {
+  display: flex; gap: 10px; align-items: center; background: var(--panel); border: 1px solid var(--line);
+  border-radius: 8px; padding: 6px 10px;
+}
+.custom .saved .s .nm { flex: 1; }
+.custom .saved .s .meta { color: var(--mute); font-size: 12.5px; }
+.msg { color: var(--mute); font-size: 13.5px; }
+
+@media (max-width: 860px) {
+  .app { grid-template-columns: 1fr; }
+  aside { position: static; max-height: 260px; border-right: 0; border-bottom: 1px solid var(--line); }
+  header { flex-wrap: wrap; }
+  .live { margin-left: 0; }
+  main { padding: 12px 16px 40px; }
+  .hand { grid-template-columns: repeat(4, 46px); grid-template-rows: 18px 46px 46px 46px; }
+  .kbd { gap: 18px; }
+}
+</style>
+</head>
+<body>
+<header>
+  <h1><span>Taipo</span> trainer</h1>
+  <nav class="tabs">
+    <button data-tab="practice" class="active">Practice</button>
+    <button data-tab="sheet">Cheat sheet</button>
+    <button data-tab="custom">Custom text</button>
+    <button data-tab="stats">Stats</button>
+  </nav>
+  <div class="live">
+    <span><b id="lv-wpm">0</b> wpm</span>
+    <span><b id="lv-acc">100</b>%</span>
+    <span><b id="lv-err">0</b> errors</span>
+    <span><b id="lv-time">0:00</b></span>
+  </div>
+</header>
+
+<div class="app">
+  <aside id="lessons"></aside>
+  <main>
+    <section class="view active" id="view-practice">
+      <div class="lesson-head">
+        <h2 id="ls-name"></h2>
+        <span class="desc" id="ls-desc"></span>
+      </div>
+      <div class="toolbar">
+        <label>Hint
+          <select id="opt-hint">
+            <option value="always">always</option>
+            <option value="delay">after 1.5 s</option>
+            <option value="error">after an error</option>
+            <option value="never">never</option>
+          </select>
+        </label>
+        <label>Hand
+          <select id="opt-hand">
+            <option value="both">both</option>
+            <option value="left">left</option>
+            <option value="right">right</option>
+          </select>
+        </label>
+        <label>Length
+          <select id="opt-len">
+            <option value="15">15 words</option>
+            <option value="30">30 words</option>
+            <option value="60">60 words</option>
+            <option value="100">100 words</option>
+          </select>
+        </label>
+        <label><input type="checkbox" id="opt-stop"> stop on error</label>
+        <label><input type="checkbox" id="opt-skip"> skip indentation</label>
+        <span class="spacer"></span>
+        <button id="btn-restart" title="Esc">↻ Restart</button>
+        <button id="btn-new">New drill</button>
+        <button id="btn-next">Next lesson →</button>
+      </div>
+      <div class="progress"><div id="prog"></div></div>
+      <div class="textwrap">
+        <div id="text" class="mono"></div>
+        <div class="result" id="result"><div class="box">
+          <div class="nums">
+            <div><b id="rs-wpm"></b><span>wpm</span></div>
+            <div><b id="rs-acc"></b><span>accuracy</span></div>
+            <div><b id="rs-time"></b><span>time</span></div>
+            <div><b id="rs-err"></b><span>errors</span></div>
+          </div>
+          <div class="missed" id="rs-missed"></div>
+          <div class="btns">
+            <button class="primary" id="rs-again">Next round</button>
+            <button id="rs-repeat">Repeat the same text</button>
+            <button id="rs-next">Next lesson →</button>
+          </div>
+          <div class="keyhint">Space / Enter: next round · Esc: repeat</div>
+        </div></div>
+      </div>
+
+      <div class="hintline">
+        <div class="big mono" id="hint-char"></div>
+        <div>
+          <div class="what" id="hint-what"></div>
+          <div class="wrong" id="hint-wrong"></div>
+        </div>
+      </div>
+      <div class="kbd" id="kbd"></div>
+      <div class="legend">
+        <span><i style="background:var(--fing)"></i>fingers</span>
+        <span><i style="background:var(--outer)"></i>outer thumb: space / shift</span>
+        <span><i style="background:var(--inner)"></i>inner thumb: backspace / symbols</span>
+        <span>↑ top row · ↓ home row · small corner letter = QWERTY position</span>
+      </div>
+      <div class="next" id="next"></div>
+    </section>
+
+    <section class="view sheet" id="view-sheet"></section>
+
+    <section class="view" id="view-custom">
+      <div class="custom">
+        <h2 style="margin:0">Custom text</h2>
+        <div class="msg">Paste text or code, or load a file. Non-ASCII characters are replaced
+          (ą→a, ł→l, „”→", –→-) or removed, because Taipo cannot send them.
+          Polish letters stay if "keep Polish letters" is on. Long texts are split into parts.</div>
+        <div class="row">
+          <input type="text" id="cu-name" placeholder="name (e.g. main.rs)" style="flex:1;min-width:200px">
+          <label class="msg"><input type="checkbox" id="cu-code"> code (smaller font, skip indentation)</label>
+          <label class="msg"><input type="checkbox" id="cu-pl"> keep Polish letters (AltGr)</label>
+          <input type="file" id="cu-file">
+        </div>
+        <textarea id="cu-text" class="mono" placeholder="Paste text here…"></textarea>
+        <div class="row">
+          <button class="primary" id="cu-go">Practice now</button>
+          <button id="cu-save">Save to list</button>
+          <label class="msg">parts of up to <input type="number" id="cu-chunk" min="100" max="5000" step="100" style="width:80px"> characters</label>
+          <span class="msg" id="cu-msg"></span>
+        </div>
+        <h3 style="margin:14px 0 0">Saved</h3>
+        <div class="saved" id="cu-list"></div>
+      </div>
+    </section>
+
+    <section class="view" id="view-stats"></section>
+  </main>
+</div>
+
+<!-- Practice texts and code. Each block becomes a lesson. -->
+<script type="text/plain" class="src" data-kind="prose" data-name="Chords: the first days">
+Chording asks you to think in shapes, not in single keys. At first every letter feels slow, because your fingers have to agree before anything happens. After a week the common shapes start to fire on their own, and the hard part becomes keeping a steady rhythm. Go slowly, stay relaxed, and let accuracy come before speed.
+</script>
+<script type="text/plain" class="src" data-kind="prose" data-name="Commit message">
+A good commit message says what changed and why. The first line is short and written in the imperative mood. The body explains the reason for the change, any trade-offs you made, and how you tested it. Future you will read it at two in the morning while hunting a bug, so be kind to that person.
+</script>
+<script type="text/plain" class="src" data-kind="prose" data-name="Pangrams">
+The quick brown fox jumps over the lazy dog. Pack my box with five dozen liquor jugs. How vexingly quick daft zebras jump! Sphinx of black quartz, judge my vow. Jackdaws love my big sphinx of quartz. The five boxing wizards jump quickly.
+</script>
+<script type="text/plain" class="src" data-kind="prose" data-name="Numbers and versions">
+Version 2.4.1 was released on 2025-03-03. It fixed 17 bugs, added 4 new commands, and cut the startup time from 820 ms to 310 ms (about 62% faster). The build needs 1.5 GB of RAM and 3 CPU cores; on a Voyager with 52 keys you only need 20 of them for Taipo. Upgrade with: nix flake update && home-manager switch.
+</script>
+<script type="text/plain" class="src" data-kind="prose" data-pl="1" data-name="Polish: learning a layout">
+Nauka nowego układu klawiatury wymaga cierpliwości. Przez pierwsze dni każde słowo pisze się powoli, ale palce szybko zapamiętują kształty akordów. Ważne jest, żeby ćwiczyć codziennie, nawet po kilkanaście minut, i nie gonić za prędkością zbyt wcześnie. Najpierw dokładność, potem rytm, a szybkość przyjdzie sama.
+</script>
+<script type="text/plain" class="src" data-kind="prose" data-pl="1" data-name="Polish: readable code">
+Programista spędza więcej czasu na czytaniu kodu niż na jego pisaniu. Dlatego warto dbać o czytelne nazwy zmiennych, krótkie funkcje i sensowne komentarze. Dobry kod tłumaczy się sam, a komentarz wyjaśnia, dlaczego coś zrobiono właśnie tak, a nie inaczej.
+</script>
+
+<script type="text/plain" class="src" data-kind="code" data-name="Python">
+from dataclasses import dataclass
+
+
+@dataclass
+class Chord:
+    keys: frozenset[str]
+    output: str
+    thumbs: int = 0
+
+    def matches(self, pressed: set[str]) -> bool:
+        return self.keys == pressed
+
+
+def load_chords(path: str) -> dict[str, Chord]:
+    chords = {}
+    with open(path, encoding="utf-8") as fh:
+        for line in fh:
+            line = line.strip()
+            if not line or line.startswith("#"):
+                continue
+            keys, output = line.split("=", 1)
+            chords[output] = Chord(frozenset(keys.split("+")), output)
+    return chords
+</script>
+<script type="text/plain" class="src" data-kind="code" data-name="TypeScript">
+type Stats = { hits: number; misses: number; ms: number };
+
+export function accuracy(stats: Record<string, Stats>): number {
+  let hits = 0;
+  let total = 0;
+  for (const s of Object.values(stats)) {
+    hits += s.hits;
+    total += s.hits + s.misses;
+  }
+  return total === 0 ? 1 : hits / total;
+}
+
+export async function fetchJson<T>(url: string): Promise<T> {
+  const res = await fetch(url, { headers: { Accept: "application/json" } });
+  if (!res.ok) throw new Error(`HTTP ${res.status}: ${url}`);
+  return (await res.json()) as T;
+}
+</script>
+<script type="text/plain" class="src" data-kind="code" data-name="Rust">
+use std::collections::HashMap;
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub enum Thumb {
+    None,
+    Outer,
+    Inner,
+}
+
+pub struct Layout {
+    chords: HashMap<(u8, Thumb), char>,
+}
+
+impl Layout {
+    pub fn lookup(&self, mask: u8, thumb: Thumb) -> Option<char> {
+        self.chords.get(&(mask, thumb)).copied()
+    }
+}
+
+fn main() {
+    let mut chords = HashMap::new();
+    chords.insert((0b1000_0000, Thumb::None), 'e');
+    let layout = Layout { chords };
+    println!("{:?}", layout.lookup(0x80, Thumb::None));
+}
+</script>
+<script type="text/plain" class="src" data-kind="code" data-name="Nix (HM module)">
+{ config, lib, pkgs, ... }:
+let
+  cfg = config.onjin.common.git;
+in
+{
+  options.onjin.common.git = {
+    enable = lib.mkEnableOption "git configuration";
+    extraConfig = lib.mkOption {
+      type = lib.types.attrs;
+      default = { };
+      description = "Extra settings merged into programs.git.";
+    };
+  };
+
+  config = lib.mkIf cfg.enable {
+    programs.git = {
+      enable = true;
+      package = pkgs.git;
+      extraConfig = {
+        init.defaultBranch = "main";
+        pull.rebase = true;
+      } // cfg.extraConfig;
+    };
+  };
+}
+</script>
+<script type="text/plain" class="src" data-kind="code" data-name="C (QMK)">
+#include QMK_KEYBOARD_H
+
+enum layers { BASE, TAIPO, NAV };
+
+static uint16_t idle_timer = 0;
+
+bool process_record_user(uint16_t keycode, keyrecord_t *record) {
+    if (record->event.pressed) {
+        idle_timer = timer_read();
+    }
+    switch (keycode) {
+        case KC_ESC:
+            if (record->event.pressed && (get_mods() & MOD_MASK_SHIFT)) {
+                tap_code16(S(KC_GRV));
+                return false;
+            }
+            break;
+    }
+    return true;
+}
+
+void matrix_scan_user(void) {
+    if (idle_timer && timer_elapsed(idle_timer) > 30000) {
+        layer_move(BASE);
+        idle_timer = 0;
+    }
+}
+</script>
+<script type="text/plain" class="src" data-kind="code" data-name="Bash">
+#!/usr/bin/env bash
+set -euo pipefail
+
+keymap="${1:-onjin}"
+out_dir="$HOME/.cache/qmk-builds"
+mkdir -p "$out_dir"
+
+if ! command -v qmk >/dev/null 2>&1; then
+  echo "qmk not found in PATH" >&2
+  exit 1
+fi
+
+qmk compile -kb zsa/voyager -km "$keymap"
+for f in *.bin; do
+  [[ -e "$f" ]] || continue
+  mv -- "$f" "$out_dir/$(date +%F)-$f"
+done
+echo "done: $(ls "$out_dir" | wc -l) builds"
+</script>
+<script type="text/plain" class="src" data-kind="code" data-name="Go">
+package main
+
+import (
+	"fmt"
+	"os"
+	"strings"
+)
+
+type Lesson struct {
+	Name  string
+	Chars []rune
+}
+
+func (l Lesson) String() string {
+	return fmt.Sprintf("%s (%d)", l.Name, len(l.Chars))
+}
+
+func main() {
+	if len(os.Args) < 2 {
+		fmt.Fprintln(os.Stderr, "usage: lesson <name>")
+		os.Exit(2)
+	}
+	l := Lesson{Name: strings.TrimSpace(os.Args[1]), Chars: []rune("aote")}
+	fmt.Println(l)
+}
+</script>
+<script type="text/plain" class="src" data-kind="code" data-name="SQL">
+SELECT u.id, u.name, COUNT(s.id) AS sessions, AVG(s.wpm) AS avg_wpm
+FROM users AS u
+LEFT JOIN sessions AS s ON s.user_id = u.id
+WHERE s.created_at >= NOW() - INTERVAL '7 days'
+GROUP BY u.id, u.name
+HAVING COUNT(s.id) > 3
+ORDER BY avg_wpm DESC
+LIMIT 10;
+</script>
+<script type="text/plain" class="src" data-kind="code" data-name="Lua (Neovim)">
+local map = vim.keymap.set
+local opts = { noremap = true, silent = true }
+
+map("n", "<leader>w", "<cmd>write<cr>", opts)
+map("n", "<leader>q", "<cmd>quit<cr>", opts)
+
+vim.api.nvim_create_autocmd("TextYankPost", {
+  callback = function()
+    vim.highlight.on_yank({ timeout = 150 })
+  end,
+})
+</script>
+
+<script>
+"use strict";
+
+/* ---------- Layout: copy of chords[] in taipo.c ---------- */
+// Fingers of one hand: R S N I = top row (pinky..index), A O T E = home row.
+// Outputs: [alone, + outer thumb (shift), + inner thumb (symbols)].
+const CHORDS = [
+  ['R',   ['r', 'R', '>'], 'single'],
+  ['S',   ['s', 'S', '}'], 'single'],
+  ['N',   ['n', 'N', ']'], 'single'],
+  ['I',   ['i', 'I', ')'], 'single'],
+  ['A',   ['a', 'A', '<'], 'single'],
+  ['O',   ['o', 'O', '{'], 'single'],
+  ['T',   ['t', 'T', '['], 'single'],
+  ['E',   ['e', 'E', '('], 'single'],
+  ['EO',  ['c', 'C', '1'], 'home'],
+  ['TO',  ['u', 'U', '2'], 'home'],
+  ['TA',  ['q', 'Q', '3'], 'home'],
+  ['OA',  ['l', 'L', '4'], 'home'],
+  ['ET',  ['h', 'H', '0'], 'home'],
+  ['EA',  ['d', 'D', '@'], 'home'],
+  ['IN',  ['y', 'Y', '5'], 'top'],
+  ['IS',  ['f', 'F', '6'], 'top'],
+  ['NS',  ['p', 'P', '7'], 'top'],
+  ['NR',  ['z', 'Z', '8'], 'top'],
+  ['SR',  ['b', 'B', '9'], 'top'],
+  ['IR',  ['g', 'G', '#'], 'top'],
+  ['TR',  ['x', 'X', '^'], 'cross'],
+  ['IO',  ['k', 'K', '+'], 'cross'],
+  ['ES',  ['v', 'V', '*'], 'cross'],
+  ['NA',  ['j', 'J', '='], 'cross'],
+  ['ER',  ['m', 'M', '$'], 'cross'],
+  ['IA',  ['w', 'W', '&'], 'cross'],
+  ['TS',  ['/', '\\', '|'], 'punct'],
+  ['NO',  ['-', '_', '%'], 'punct'],
+  ['IT',  ['?', '!', ''], 'punct'],
+  ['EN',  [',', '.', '~'], 'punct'],
+  ['OR',  [';', ':', ''], 'punct'],
+  ['SA',  ["'", '"', '`'], 'punct'],
+  ['INS', ['\t', 'Del', 'FN'], 'special'],
+  ['ETO', ['\n', 'Esc', 'AltGr'], 'special'],
+  ['AR',  ['Gui', '→', 'PgUp'], 'mod'],
+  ['OS',  ['Alt', '↑', 'Home'], 'mod'],
+  ['TN',  ['Ctrl', '↓', 'End'], 'mod'],
+  ['EI',  ['Shift', '←', 'PgDn'], 'mod'],
+];
+
+const FINGER = {
+  R: 'pinky↑', S: 'ring↑', N: 'middle↑', I: 'index↑',
+  A: 'pinky↓', O: 'ring↓', T: 'middle↓', E: 'index↓',
+};
+const FINGER_ORDER = 'IENTSORA'; // index to pinky
+const QW = {
+  left:  { R: 'Q', S: 'W', N: 'E', I: 'R', A: 'A', O: 'S', T: 'D', E: 'F' },
+  right: { R: 'P', S: 'O', N: 'I', I: 'U', A: ';', O: 'L', T: 'K', E: 'J' },
+};
+const ROWS = {
+  left:  [['R', 'S', 'N', 'I'], ['A', 'O', 'T', 'E']],
+  right: [['I', 'N', 'S', 'R'], ['E', 'T', 'O', 'A']],
+};
+
+// char -> { f: fingers, t: 0 none / 1 outer / 2 inner, alt: another chord }
+const CHAR = { ' ': { f: '', t: 1 } };
+for (const [f, outs, grp] of CHORDS) {
+  if (grp === 'mod') continue;
+  for (let t = 0; t < 3; t++) {
+    const v = outs[t];
+    if (v.length !== 1) continue;
+    if (CHAR[v]) CHAR[v].alt = { f, t };
+    else CHAR[v] = { f, t };
+  }
+}
+// Polish letters: one-shot AltGr (Enter chord + inner thumb), then the base
+// letter chord. Needs the OS layout "pl" (Polish programmer's).
+const PL_MAP = { 'ą': 'a', 'ć': 'c', 'ę': 'e', 'ł': 'l', 'ń': 'n', 'ó': 'o', 'ś': 's', 'ź': 'x', 'ż': 'z' };
+const PL_CHARS = Object.keys(PL_MAP).join('');
+const ALTGR = { f: 'ETO', t: 2 };
+for (const [pl, base] of Object.entries(PL_MAP)) {
+  CHAR[pl] = { f: CHAR[base].f, t: 0, altgr: true, base };
+  CHAR[pl.toUpperCase()] = { f: CHAR[base].f, t: 1, altgr: true, base: base.toUpperCase() };
+}
+const sortF = f => [...f].sort((a, b) => FINGER_ORDER.indexOf(a) - FINGER_ORDER.indexOf(b)).join('');
+
+function describe(info) {
+  if (!info) return 'not in the Taipo layout';
+  if (info.altgr) return `AltGr, then ${info.base} (${describe({ f: info.f, t: info.t })})`;
+  const parts = [...sortF(info.f)].map(k => FINGER[k]);
+  if (info.t === 1) parts.push(info.f ? 'outer thumb (shift)' : 'outer thumb');
+  if (info.t === 2) parts.push('inner thumb');
+  return parts.join(' + ');
+}
+function qwerty(info) {
+  if (!info || !info.f) return '';
+  const l = [...sortF(info.f)].map(k => QW.left[k]).reverse().join('+');
+  const r = [...sortF(info.f)].map(k => QW.right[k]).join('+');
+  return `QWERTY: left ${l} · right ${r}`;
+}
+// Mini diagram, preceded by the AltGr chord for Polish letters.
+const miniFull = info => info.altgr ? mini(ALTGR) + '<span class="then">→</span>' + mini(info) : mini(info);
+const dispChar = c => c === '\n' ? '↵' : c === '\t' ? '⇥' : c === ' ' ? '␣' : c;
+
+/* ---------- Storage ---------- */
+const store = {
+  get(k, d) { try { const v = localStorage.getItem('taipo.' + k); return v ? JSON.parse(v) : d; } catch (e) { return d; } },
+  set(k, v) { try { localStorage.setItem('taipo.' + k, JSON.stringify(v)); } catch (e) { /* storage unavailable */ } },
+};
+const opt = Object.assign(
+  { hint: 'always', hand: 'both', len: 30, stop: true, skip: true, chunk: 700 },
+  store.get('opt', {}));
+let stats = store.get('stats', {});        // char -> { n, miss, ms }
+let progress = store.get('progress', {});  // lesson -> { wpm, acc, runs }
+let history = store.get('history', []);
+let customs = store.get('custom', []);     // { name, text, code }
+
+/* ---------- Words and generators ---------- */
+const EN = ('the be to of and in that have it for not on with he as you do at this but his by from they we say her she or ' +
+  'an will my one all would there their what so up out if about who get which go me when make can like time no just him know ' +
+  'take people into year your good some could them see other than then now look only come its over think also back after use ' +
+  'two how our work first well way even new want because any these give day most us is was are has had did been were said made ' +
+  'find here thing many long down little world still between own last never under need great house home old hand part high ' +
+  'place same small large next early young few public point fact keep let begin seem help show hear play run move live believe ' +
+  'hold bring write provide sit stand lose pay meet include continue set learn change lead understand watch follow stop create ' +
+  'speak read allow add spend grow open walk win offer remember love consider appear buy wait serve send expect build stay fall ' +
+  'cut reach remain suggest raise pass sell require report decide pull key code data file line test word text type value list ' +
+  'error case left right top end note true false yes quick jump box zone quiz joke fix mix size wave vote'
+  ).split(' ');
+const EASY = ('to at on in it is as an so no tea eat ate oat toe tote sea set net ten tin sin son not note tone stone rest rent ' +
+  'tent nest east seat rose nose risen inner noon soon onto into iron rain train stain saint toast state taste treat street ' +
+  'sit sir its tie toe one none nine tree see seen teen sent rose snort store senior station ration nation notes stars ' +
+  'roast sister tennis instant attention eaten rotten stone resort insert assert retain').split(' ');
+const PROG = ('function return const let var if else elif for while do break continue switch case default class struct enum ' +
+  'trait impl interface type extends implements import export from as def lambda yield async await try catch except finally ' +
+  'throw raise new delete this self super null nil None true false True False void int uint8_t uint16_t bool char string str ' +
+  'float double list dict map set vec Option Result Some Ok Err match fn pub mut static inline public private package module ' +
+  'use mod crate println printf console log len range print open with assert defer go chan select where then fi esac done ' +
+  'local echo source sudo git commit push pull merge rebase branch checkout nix flake mkIf mkOption lib pkgs config options enable').split(' ');
+const PL = ('nie sie jest to na co jak ale tak juz czy dla przez po od tylko jego jej oraz bardzo moze kiedy teraz tutaj gdzie ' +
+  'dobrze bedzie mozna jeszcze wiec potem przed miedzy wszystko zawsze nigdy dzisiaj jutro wczoraj praca dom kod plik klawiatura ' +
+  'uklad litera slowo zdanie tekst program funkcja zmienna wartosc blad test projekt serwer baza danych system dzien noc woda ' +
+  'chleb miasto droga czlowiek dziecko szkola reka palec szybko wolno dokladnie rytm akord kciuk cwiczenie nauka pamiec').split(' ');
+const PLW = ('się już może będzie także można więc między właśnie żeby też część miał była które który jeść łódź ' +
+  'źródło żółw gęś ćma pięć sześć dzień świat życie ręka głowa ściana źle dłoń mąż żona słońce książka łóżko ' +
+  'chłopiec ścieżka różnica późno wcześnie język ślad mógł chciał przyjść zrobić napisać układ ćwiczenie pamięć ' +
+  'szybkość dokładność błąd wartość zmienna funkcja wiadomość odpowiedź pytanie żółty źrebię ośmiornica ' +
+  'gałąź jabłoń wąż łąka mięso ząb ciężki śnieg późny jeżeli nadzieja więcej mniej dziś wyjść cześć').split(' ');
+const BIGRAMS = ('th he in er an re on at en nd ti es or te of ed is it al ar st to nt ng se ha as ou io le ve co me de hi ' +
+  'ri ro ic ne ea ra ce li ch ll be ma si om ur').split(' ');
+const TRIGRAMS = ('the and ing ion tio ent ati for her ter hat tha ere ate his con res ver all ons nce men ith ted ers pro ' +
+  'thi wit are ess not ive was ect rea com eve per int est sta cti ica ist ear ain one our iti rat').split(' ');
+const PLSYL = ('nie sie prz rze rzy cze czy szy sza dzi cie nia ego ych owa ani ost ski cja wie pra pro sta kie ego ami ach ' +
+  'owi sza dze rob mow pis wal').split(' ');
+
+const rnd = n => Math.floor(Math.random() * n);
+const pick = a => a[rnd(a.length)];
+const pickN = (a, n) => Array.from({ length: n }, () => pick(a)).join(' ');
+const cap = w => w ? w[0].toUpperCase() + w.slice(1) : w;
+const shortWord = () => pick(EN.filter(w => w.length >= 2 && w.length <= 6));
+
+function randGroup(newC, knownC) {
+  const len = 2 + rnd(3);
+  let s = '';
+  for (let i = 0; i < len; i++) {
+    const fromNew = !knownC || Math.random() < 0.6;
+    s += pick(fromNew ? newC : knownC);
+  }
+  if (![...s].some(c => newC.includes(c))) {
+    const i = rnd(len);
+    s = s.slice(0, i) + pick(newC) + s.slice(i + 1);
+  }
+  return s;
+}
+function letterDrill(newC, knownC, n) {
+  const all = new Set([...newC, ...knownC]);
+  const pool = [...new Set([...EASY, ...EN])].filter(w =>
+    w.length > 1 && [...w].every(c => all.has(c)) && [...w].some(c => newC.includes(c)));
+  const out = [];
+  for (let i = 0; i < n; i++) {
+    out.push(pool.length >= 4 && Math.random() < 0.55 ? pick(pool) : randGroup(newC, knownC));
+  }
+  return out.join(' ');
+}
+function capsDrill(base, n) {
+  return base.split(' ').map(w => {
+    const r = Math.random();
+    return r < 0.65 ? cap(w) : r < 0.8 ? w.toUpperCase() : w;
+  }).join(' ');
+}
+const num = (max = 1000) => String(rnd(max));
+const tmpl = (list, n) => Array.from({ length: n }, () => pick(list)()).join(' ');
+
+const T_PUNCT = [
+  () => `${shortWord()}, ${shortWord()}.`, () => `${cap(shortWord())}?`, () => `${shortWord()}!`,
+  () => `${shortWord()}: ${shortWord()};`, () => `"${shortWord()}"`, () => `'${shortWord()}'`,
+  () => pick(["it's", "don't", "can't", "you're", "we'll", "isn't"]), () => `${cap(shortWord())} ${shortWord()}.`,
+  () => `${shortWord()}...`, () => `"${cap(shortWord())}!"`,
+];
+const T_DASH = [
+  () => `${shortWord()}-${shortWord()}`, () => `${shortWord()}_${shortWord()}`, () => `${shortWord()}/${shortWord()}`,
+  () => `~/${shortWord()}/${shortWord()}`, () => `--${shortWord()}`, () => `-${pick('vqnfx')}`,
+  () => `__${shortWord()}__`, () => `C:\\${shortWord()}\\${shortWord()}`, () => `a\\b`, () => `../${shortWord()}`,
+];
+const T_BRACK = [
+  () => `${shortWord()}()`, () => `${shortWord()}(${shortWord()})`, () => `${shortWord()}[${num(10)}]`,
+  () => `{ ${shortWord()} }`, () => `<${shortWord()}>`, () => `[${shortWord()}, ${shortWord()}]`,
+  () => `f(x[i])`, () => `{${shortWord()}: ${num(100)}}`, () => `Vec<${cap(shortWord())}>`,
+  () => `if (${shortWord()}) {}`, () => `(${shortWord()} (${shortWord()}))`, () => `[]`, () => `{}`,
+];
+const T_SYM = [
+  () => `#${shortWord()}`, () => `$${shortWord()}`, () => `@${shortWord()}`, () => `${num(100)} % ${num(10)}`,
+  () => `x ^ y`, () => `${shortWord()} && ${shortWord()}`, () => `${shortWord()} || ${shortWord()}`,
+  () => `a * b`, () => `${shortWord()} + ${num(10)}`, () => `${shortWord()} = ${num(100)}`,
+  () => `${shortWord()} == ${shortWord()}`, () => `${shortWord()} != ${shortWord()}`, () => `${shortWord()} | ${shortWord()}`,
+  () => `~${shortWord()}`, () => '`' + shortWord() + '`', () => `${shortWord()} += 1`, () => `=>`, () => `->`,
+  () => `<=`, () => `>=`, () => `!${shortWord()}`, () => `#!/bin/sh`, () => `&${shortWord()}`, () => `*${shortWord()}`,
+];
+const T_NUM = [
+  () => num(10), () => num(100), () => num(10000), () => `${num(10)}.${num(100)}`,
+  () => `v${num(5)}.${num(20)}.${num(10)}`, () => `${num(24)}:${String(rnd(60)).padStart(2, '0')}`,
+  () => `${num(100)}%`, () => `[${num(10)}]`, () => `20${String(rnd(30)).padStart(2, '0')}-${String(1 + rnd(12)).padStart(2, '0')}-${String(1 + rnd(28)).padStart(2, '0')}`,
+  () => `${num(1000)} ${shortWord()}`,
+];
+function plDrill(newC, n) {
+  const pool = PLW.filter(w => [...w].some(c => newC.includes(c)));
+  const out = [];
+  for (let i = 0; i < n; i++) {
+    out.push(pool.length && Math.random() < 0.55 ? pick(pool) : randGroup(newC, 'aeiostrnzcwy'));
+  }
+  return out.join(' ');
+}
+function identDrill(n) {
+  const w = () => pick(Math.random() < 0.5 ? PROG.filter(x => /^[a-z]+$/.test(x)) : EN.filter(x => x.length > 2 && x.length < 8));
+  const f = [
+    () => w() + cap(w()), () => `${w()}_${w()}`, () => `${w()}-${w()}`, () => `${w()}_${w()}`.toUpperCase(),
+    () => cap(w()) + cap(w()), () => `${w()}${cap(w())}()`, () => `self.${w()}`, () => `${w()}.${w()}(${w()})`,
+    () => `${w()}::${cap(w())}`, () => `${w()}_${w()}(${num(10)})`,
+  ];
+  return tmpl(f, n);
+}
+function enterDrill(n) {
+  const lines = [];
+  for (let i = 0; i < Math.max(4, Math.round(n / 2.5)); i++) {
+    const k = 1 + rnd(3);
+    lines.push((Math.random() < 0.35 ? '\t' : '') + Array.from({ length: k }, shortWord).join(' '));
+  }
+  return lines.join('\n');
+}
+function weakChars() {
+  return Object.entries(stats)
+    .filter(([c, s]) => s.n >= 3 && c !== ' ' && CHAR[c])
+    .map(([c, s]) => [c, (s.miss + 0.5) / (s.n + 1) + Math.min(s.ms / s.n, 3000) / 6000])
+    .sort((a, b) => b[1] - a[1]).slice(0, 6).map(x => x[0]);
+}
+function weakDrill(n) {
+  const weak = weakChars();
+  if (!weak.length) return letterDrill('abcdefghijklmnopqrstuvwxyz', '', n);
+  const letters = weak.filter(c => /[a-z]/.test(c)).join('');
+  const all = 'abcdefghijklmnopqrstuvwxyz';
+  const out = [];
+  for (let i = 0; i < n; i++) {
+    if (letters && Math.random() < 0.6) out.push(letterDrill(letters, all, 1));
+    else out.push(randGroup(weak, ''));
+  }
+  return out.join(' ');
+}
+
+/* ---------- Texts ---------- */
+function sanitize(s, keepPl = false) {
+  const rep = { '‘': "'", '’': "'", '‚': "'", '“': '"', '”': '"', '„': '"', '«': '"', '»': '"',
+    '–': '-', '—': '-', '…': '...', '\u00a0': ' ', 'ł': 'l', 'Ł': 'L', 'ß': 'ss', '×': 'x', '·': '.', '→': '->', '←': '<-' };
+  const isPl = c => keepPl && CHAR[c] && CHAR[c].altgr;
+  s = s.replace(/\r\n?/g, '\n').normalize('NFC');
+  s = [...s].map(c => isPl(c) ? c : rep[c] !== undefined ? rep[c] : c.normalize('NFD').replace(/[\u0300-\u036f]/g, '')).join('');
+  let removed = 0;
+  s = [...s].filter(c => /[\x20-\x7e\n\t]/.test(c) || isPl(c) || (removed++, false)).join('');
+  s = s.split('\n').map(l => l.replace(/[ \t]+$/, '')).join('\n');
+  s = s.replace(/\n{3,}/g, '\n\n').replace(/^\n+/, '').replace(/\s+$/, '');
+  return { text: s, removed };
+}
+function chunk(text, max) {
+  if (text.length <= max) return [text];
+  const items = [];
+  for (const line of text.split('\n')) {
+    if (line.length <= max) { items.push({ s: line, sep: '\n' }); continue; }
+    line.split(/(?<=[.!?;])\s+/).forEach((s, i) => items.push({ s, sep: i ? ' ' : '\n' }));
+  }
+  const parts = [];
+  let cur = '';
+  for (const it of items) {
+    if (cur && cur.length + it.s.length + 1 > max) { parts.push(cur); cur = ''; }
+    cur = cur ? cur + it.sep + it.s : it.s;
+  }
+  if (cur) parts.push(cur);
+  return parts.map(p => p.replace(/\s+$/, '')).filter(p => p.trim());
+}
+
+/* ---------- Lessons ---------- */
+const LESSONS = [];
+const add = (group, id, name, desc, make, extra = {}) => LESSONS.push({ group, id, name, desc, make, ...extra });
+const G1 = 'Single keys', G2 = 'Letter chords', G3 = 'Punctuation, digits, symbols', G4 = 'Syllables',
+  G5 = 'Words', G6 = 'Texts', G7 = 'Code', G8 = 'Training';
+const S8 = 'aoternsi';
+add(G1, 'home', 'Home row: a o t e', 'One finger = one letter. Space is the outer thumb.', n => letterDrill('aote', '', n));
+add(G1, 'top', 'Top row: r s n i', 'The top row with the same fingers.', n => letterDrill('rsni', 'aote', n));
+add(G1, 'singles', 'Eight letters + space', 'All single keys.', n => letterDrill(S8, '', n));
+add(G1, 'caps', 'Capitals', 'The outer thumb together with a letter gives a capital.', n => capsDrill(letterDrill(S8, '', n), n));
+add(G2, 'homepairs', 'Home pairs: h c d u l q', 'Two fingers on the home row.', n => letterDrill('hcdulq', S8, n));
+add(G2, 'toppairs', 'Top pairs: y f p z b g', 'Two fingers on the top row.', n => letterDrill('yfpzbg', S8 + 'hcdulq', n));
+add(G2, 'cross', 'Cross pairs: m v w k x j', 'One finger on the top row, one on the home row.', n => letterDrill('mvwkxj', S8 + 'hcdulqyfpzbg', n));
+add(G2, 'alpha', 'Whole alphabet', 'Common words, all letters.', n => letterDrill('abcdefghijklmnopqrstuvwxyz', '', n));
+add(G2, 'capsall', 'Capitals: whole alphabet', 'Shift = outer thumb.', n => capsDrill(pickN(EN, n), n));
+add(G3, 'punct', 'Punctuation , . ? ! ; : \' "', 'Period = comma + outer thumb.', n => tmpl(T_PUNCT, n));
+add(G3, 'dash', 'Dashes and slashes - _ / \\', '', n => tmpl(T_DASH, n));
+add(G3, 'enter', 'Enter and Tab', 'Enter = E+T+O, Tab = I+N+S (three fingers).', n => enterDrill(n), { noSkip: true });
+add(G3, 'digits', 'Digits 1–0', 'Letter chord + inner thumb: c→1, u→2 … h→0.', n => tmpl(T_NUM, n));
+add(G3, 'brackets', 'Brackets ( ) [ ] { } < >', 'Single fingers + inner thumb: home row opens, top row closes.', n => tmpl(T_BRACK, n));
+add(G3, 'symbols', 'Symbols @ # $ % ^ & * + = | ~ `', 'Chord + inner thumb.', n => tmpl(T_SYM, n));
+const GP = 'Polish letters (AltGr)';
+add(GP, 'pl-1', 'Polish: ą ę ó ł', 'AltGr (Enter + inner thumb), then the base letter: a e o l.', n => plDrill('ąęół', n));
+add(GP, 'pl-2', 'Polish: ć ń ś ź ż', 'AltGr, then c n s x z. Note: ź is AltGr + x.', n => plDrill('ćńśźż', n));
+add(GP, 'pl-all', 'Polish words', 'Real words with all nine letters.', n => plDrill(PL_CHARS, n));
+add(GP, 'pl-caps', 'Polish capitals', 'AltGr, then the letter chord with the outer thumb (shift).',
+  n => capsDrill(plDrill(PL_CHARS, n), n));
+add(G4, 'bi', 'English bigrams', 'th he in er an …', n => pickN(BIGRAMS, n));
+add(G4, 'tri', 'English trigrams', 'the and ing ion …', n => pickN(TRIGRAMS, n));
+add(G4, 'plsyl', 'Polish syllables', 'Without diacritics.', n => pickN(PLSYL, n));
+add(G5, 'en', 'Common English words', '', n => pickN(EN, n));
+add(G5, 'prog', 'Code keywords', 'Python, Rust, JS, C, Nix, shell.', n => pickN(PROG, n));
+add(G5, 'ident', 'Identifiers', 'camelCase, snake_case, kebab-case, calls.', n => identDrill(n));
+add(G5, 'pl', 'Polish words', 'Without diacritics.', n => pickN(PL, n));
+for (const el of document.querySelectorAll('script.src')) {
+  const code = el.dataset.kind === 'code';
+  const pl = el.dataset.pl === '1';
+  const { text } = sanitize(el.textContent, pl);
+  add(code ? G7 : G6, 'src:' + el.dataset.name, el.dataset.name,
+    code ? 'Indentation is skipped, Enter at the end of each line.' : pl ? 'With Polish letters: AltGr, then the base letter.' : '',
+    null, { text, code });
+}
+add(G8, 'weak', 'Weak characters', 'The least accurate and slowest characters from your stats.', n => weakDrill(n));
+
+function customLessons() {
+  return customs.map((c, i) => ({ group: 'Custom', id: 'custom:' + c.name, name: c.name, desc: 'Custom text.',
+    text: c.text, code: c.code, custom: i }));
+}
+const allLessons = () => [...LESSONS, ...customLessons()];
+const findLesson = id => allLessons().find(l => l.id === id);
+
+/* ---------- Exercise state ---------- */
+const $ = id => document.getElementById(id);
+const textEl = $('text');
+let S = null;
+let current = null;    // lesson
+let part = 0;          // part of a longer text
+let lastText = '';
+
+function lessonParts(l) { return chunk(l.text, l.custom !== undefined ? (opt.chunk || 700) : 1200); }
+
+function startLesson(l, opts = {}) {
+  current = l;
+  if (!opts.keepPart) part = 0;
+  let text;
+  if (opts.same) text = lastText;
+  else if (l.make) text = l.make(+opt.len);
+  else {
+    const parts = lessonParts(l);
+    part = Math.min(part, parts.length - 1);
+    text = parts[part];
+  }
+  lastText = text;
+  store.set('last', l.id);
+  $('ls-name').textContent = l.name + (l.make ? '' : partLabel(l));
+  $('ls-desc').textContent = l.desc || '';
+  $('opt-len').disabled = !l.make;
+  textEl.classList.toggle('code', !!l.code);
+  load(text, l);
+  renderLessons();
+}
+function partLabel(l) {
+  const n = lessonParts(l).length;
+  return n > 1 ? ` (${part + 1}/${n})` : '';
+}
+
+function load(text, l) {
+  S = { text, pos: 0, st: new Array(text.length).fill(0), errHere: false, started: 0, lastTs: 0,
+    errors: 0, missed: {}, done: false, skipWs: opt.skip && !(l && l.noSkip) };
+  // st: 0 pending, 1 ok, 2 corrected, 3 wrong (no stop), 4 skipped
+  textEl.textContent = '';
+  const frag = document.createDocumentFragment();
+  S.spans = [...text].map(c => {
+    const sp = document.createElement('span');
+    if (c === '\n') { sp.textContent = '↵\n'; sp.className = 'ws'; }
+    else if (c === '\t') { sp.textContent = '⇥\t'; sp.className = 'ws'; }
+    else sp.textContent = c;
+    frag.append(sp);
+    return sp;
+  });
+  textEl.append(frag);
+  textEl.scrollTop = 0;
+  $('result').classList.remove('show');
+  $('hint-wrong').textContent = '';
+  skipIndent();
+  paintAll();
+  updateLive();
+}
+
+function isIndent(pos) {
+  const ls = S.text.lastIndexOf('\n', pos - 1) + 1;
+  return /^[ \t]*$/.test(S.text.slice(ls, pos)) && (S.text[pos] === ' ' || S.text[pos] === '\t');
+}
+function skipIndent() {
+  if (!S.skipWs) return;
+  while (S.pos < S.text.length && isIndent(S.pos)) { S.st[S.pos] = 4; S.pos++; }
+}
+
+function paint(i) {
+  const sp = S.spans[i];
+  if (!sp) return;
+  const c = S.text[i];
+  const base = (c === '\n' || c === '\t') ? 'ws' : '';
+  const cls = ['', 'ok', 'fix', 'bad', 'skip'][S.st[i]];
+  sp.className = [base, cls, i === S.pos ? 'cur' : '', i === S.pos && S.errHere ? 'err' : ''].filter(Boolean).join(' ');
+}
+function paintAll() {
+  for (let i = 0; i < S.spans.length; i++) paint(i);
+  afterMove();
+}
+function afterMove() {
+  const sp = S.spans[S.pos];
+  if (sp) {
+    const target = sp.offsetTop - textEl.clientHeight / 3;
+    if (Math.abs(textEl.scrollTop - target) > textEl.clientHeight / 3) textEl.scrollTo({ top: Math.max(0, target), behavior: 'smooth' });
+  }
+  $('prog').style.width = (S.text.length ? 100 * S.pos / S.text.length : 0) + '%';
+  updateHint();
+}
+
+function recordStat(c, ok, ms) {
+  const s = stats[c] || (stats[c] = { n: 0, miss: 0, ms: 0 });
+  s.n++;
+  if (!ok) s.miss++;
+  else if (ms > 0 && ms < 5000) s.ms += ms;
+}
+
+function typeChar(ch) {
+  const now = performance.now();
+  if (!S.started) { S.started = now; S.lastTs = now; }
+  const exp = S.text[S.pos];
+  const from = S.pos;
+  if (ch === exp) {
+    if (!S.errHere) recordStat(exp, true, now - S.lastTs);
+    S.st[S.pos] = S.errHere ? 2 : 1;
+    S.errHere = false;
+    S.pos++;
+    S.lastTs = now;
+    $('hint-wrong').textContent = '';
+    skipIndent();
+  } else {
+    S.errors++;
+    S.missed[exp] = (S.missed[exp] || 0) + 1;
+    if (!S.errHere) recordStat(exp, false);
+    showWrong(ch, exp);
+    if (opt.stop) {
+      S.errHere = true;
+      const sp = S.spans[S.pos];
+      sp.classList.remove('err'); void sp.offsetWidth; // restart the animation
+    } else {
+      S.st[S.pos] = 3;
+      S.pos++;
+      skipIndent();
+    }
+  }
+  for (let i = from; i <= S.pos; i++) paint(i);
+  afterMove();
+  updateLive();
+  if (S.pos >= S.text.length) finish();
+}
+
+function backspace() {
+  if (opt.stop || S.done || S.pos === 0) return;
+  const from = S.pos;
+  while (S.pos > 0 && S.st[S.pos - 1] === 4) { S.st[S.pos - 1] = 0; S.pos--; }
+  if (S.pos > 0) { S.pos--; S.st[S.pos] = 0; }
+  S.errHere = false;
+  for (let i = S.pos; i <= from; i++) paint(i);
+  afterMove();
+  updateLive();
+}
+
+function showWrong(ch, exp) {
+  const a = CHAR[ch], b = CHAR[exp];
+  $('hint-wrong').innerHTML =
+    `typed <b class="mono">${esc(dispChar(ch))}</b> ${a ? miniFull(a) : ''} (${esc(describe(a))}) instead of ` +
+    `<b class="mono">${esc(dispChar(exp))}</b> ${b ? miniFull(b) : ''}`;
+}
+
+function counts() {
+  let ok = 0, fix = 0, bad = 0;
+  for (let i = 0; i < S.pos; i++) {
+    if (S.st[i] === 1) ok++; else if (S.st[i] === 2) fix++; else if (S.st[i] === 3) bad++;
+  }
+  return { ok, fix, bad, typed: ok + fix + bad };
+}
+function elapsed() { return S.started ? (S.done ? S.endTs : performance.now()) - S.started : 0; }
+const fmtTime = ms => { const s = Math.round(ms / 1000); return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`; };
+function metrics() {
+  const c = counts();
+  const ms = elapsed();
+  const wpm = ms > 1500 ? (c.ok + c.fix) / 5 / (ms / 60000) : 0;
+  const acc = c.typed ? 100 * c.ok / c.typed : 100;
+  return { wpm, acc, ms, ...c };
+}
+function updateLive() {
+  if (!S) return;
+  const m = metrics();
+  $('lv-wpm').textContent = Math.round(m.wpm);
+  $('lv-acc').textContent = Math.round(m.acc);
+  $('lv-err').textContent = S.errors;
+  $('lv-time').textContent = fmtTime(m.ms);
+}
+setInterval(() => { if (S && S.started && !S.done) updateLive(); }, 1000);
+
+function finish() {
+  S.done = true;
+  S.endTs = performance.now();
+  clearTimeout(hintTimer);
+  const m = metrics();
+  store.set('stats', stats);
+  const p = progress[current.id] || { wpm: 0, acc: 0, runs: 0 };
+  p.runs++;
+  p.wpm = Math.max(p.wpm, Math.round(m.wpm));
+  p.acc = Math.max(p.acc, Math.round(m.acc));
+  progress[current.id] = p;
+  store.set('progress', progress);
+  history.push({ id: current.id, name: current.name, wpm: Math.round(m.wpm), acc: Math.round(m.acc), ts: Date.now() });
+  history = history.slice(-300);
+  store.set('history', history);
+
+  $('rs-wpm').textContent = Math.round(m.wpm);
+  $('rs-acc').textContent = Math.round(m.acc) + '%';
+  $('rs-time').textContent = fmtTime(m.ms);
+  $('rs-err').textContent = S.errors;
+  const missed = Object.entries(S.missed).sort((a, b) => b[1] - a[1]).slice(0, 8);
+  $('rs-missed').innerHTML = missed.length
+    ? 'Most errors: ' + missed.map(([c, k]) => `<code class="mono">${esc(dispChar(c))}</code>×${k}`).join(' ')
+    : 'No errors.';
+  const parts = current.make ? 1 : lessonParts(current).length;
+  $('rs-again').textContent = current.make ? 'Next round' : (part + 1 < parts ? 'Next part' : 'Next lesson');
+  $('result').classList.add('show');
+  updateLive();
+  renderLessons();
+  drawHint(false);
+}
+
+function again() {
+  if (current.make) return startLesson(current);
+  const parts = lessonParts(current).length;
+  if (part + 1 < parts) { part++; return startLesson(current, { keepPart: true }); }
+  nextLesson();
+}
+function nextLesson() {
+  const all = allLessons();
+  const i = all.findIndex(l => l.id === current.id);
+  startLesson(all[(i + 1) % all.length]);
+}
+const restart = () => startLesson(current, { same: true, keepPart: true });
+
+/* ---------- Hints and keyboard ---------- */
+let hintTimer = null;
+const hands = {};
+function buildKeyboard() {
+  const kbd = $('kbd');
+  kbd.textContent = '';
+  const base = Object.fromEntries(CHORDS.filter(c => c[0].length === 1).map(c => [c[0], c[1][0]]));
+  for (const side of ['left', 'right']) {
+    if (opt.hand !== 'both' && opt.hand !== side) continue;
+    const el = document.createElement('div');
+    el.className = 'hand';
+    let h = `<div class="handlabel">${side === 'left' ? 'left' : 'right'}</div>`;
+    ROWS[side].forEach((row, r) => {
+      for (const k of row) h += `<div class="key ${r ? 'home' : ''}" data-k="${k}"><b>${base[k]}</b><small>${QW[side][k]}</small></div>`;
+    });
+    const th = [['o', '␣ / ⇧'], ['i', '⌫ / sym']];
+    if (side === 'right') th.reverse();
+    th.forEach(([t, lab], j) => {
+      const col = side === 'left' ? 3 + j : 1 + j;
+      h += `<div class="key thumb ${t}" data-t="${t}" style="grid-column:${col}"><b>${lab}</b></div>`;
+    });
+    el.innerHTML = h;
+    kbd.append(el);
+    hands[side] = el;
+  }
+  for (const s of ['left', 'right']) if (!kbd.contains(hands[s])) delete hands[s];
+}
+function paintKeys(info) {
+  for (const el of Object.values(hands)) {
+    for (const k of el.querySelectorAll('[data-k]')) k.classList.toggle('on', !!info && info.f.includes(k.dataset.k));
+    for (const k of el.querySelectorAll('[data-t]')) {
+      const t = k.dataset.t;
+      k.classList.toggle('on', !!info && ((info.t === 1 && t === 'o') || (info.t === 2 && t === 'i')));
+    }
+  }
+}
+function mini(info, label) {
+  const side = opt.hand === 'right' ? 'right' : 'left';
+  let h = '<span class="mini" title="' + esc(label || describe(info)) + '">';
+  for (const row of ROWS[side]) for (const k of row) h += `<i class="${info.f.includes(k) ? 'on' : ''}"></i>`;
+  const th = side === 'left' ? ['gap', 'gap', 'o', 'i'] : ['i', 'o', 'gap', 'gap'];
+  for (const t of th) {
+    if (t === 'gap') { h += '<i class="gap"></i>'; continue; }
+    const on = (info.t === 1 && t === 'o') || (info.t === 2 && t === 'i') || info.t === 3;
+    h += `<i class="t ${t} ${on ? 'on' : ''}"></i>`;
+  }
+  return h + '</span>';
+}
+function updateHint() {
+  clearTimeout(hintTimer);
+  if (!S || S.done) return drawHint(false);
+  const show = opt.hint === 'always' || (S.errHere && opt.hint !== 'never');
+  drawHint(show);
+  if (!show && opt.hint === 'delay') hintTimer = setTimeout(() => drawHint(true), 1500);
+}
+function drawHint(show) {
+  const c = S && !S.done ? S.text[S.pos] : undefined;
+  $('hint-char').textContent = c === undefined ? '' : dispChar(c);
+  const info = c !== undefined ? CHAR[c] : null;
+  if (show && c !== undefined) {
+    paintKeys(info);
+    const alt = info && info.alt ? ` <span class="q">· or ${esc(describe(info.alt))}</span>` : '';
+    const pre = info && info.altgr
+      ? `<span class="q">first</span> ${mini(ALTGR)} <span class="q">AltGr (Enter + inner thumb), then the keys shown</span><br>` : '';
+    $('hint-what').innerHTML = `${pre}${esc(describe(info))}${alt}<br><span class="q">${esc(qwerty(info))}</span>`;
+  } else {
+    paintKeys(null);
+    $('hint-what').innerHTML = c === undefined ? '' : '<span class="q">hint hidden</span>';
+  }
+  // preview of the next chords
+  const nx = $('next');
+  nx.textContent = '';
+  if (!show || c === undefined) return;
+  let html = '', j = S.pos + 1, k = 0;
+  while (j < S.text.length && k < 5) {
+    if (S.skipWs && isIndentAfterNl(j)) { j++; continue; }
+    const ch = S.text[j], inf = CHAR[ch];
+    if (inf) html += `<div class="n"><span class="mono">${esc(dispChar(ch))}</span><span>${miniFull(inf)}</span></div>`;
+    j++; k++;
+  }
+  nx.innerHTML = html;
+}
+function isIndentAfterNl(j) {
+  const ls = S.text.lastIndexOf('\n', j - 1) + 1;
+  return (S.text[j] === ' ' || S.text[j] === '\t') && /^[ \t]*$/.test(S.text.slice(ls, j));
+}
+
+/* ---------- Lesson list ---------- */
+function renderLessons() {
+  const box = $('lessons');
+  let h = '', g = '';
+  for (const l of allLessons()) {
+    if (l.group !== g) { g = l.group; h += `<h3>${esc(g)}</h3>`; }
+    const p = progress[l.id];
+    const best = p ? `${p.wpm} wpm · ${p.acc}%` : '';
+    h += `<button class="item ${current && current.id === l.id ? 'active' : ''}" data-id="${esc(l.id)}">` +
+      `<span>${esc(l.name)}</span><span class="best">${best}</span></button>`;
+  }
+  box.innerHTML = h;
+}
+$('lessons').addEventListener('click', e => {
+  const b = e.target.closest('.item');
+  if (!b) return;
+  showTab('practice');
+  startLesson(findLesson(b.dataset.id));
+});
+
+/* ---------- Cheat sheet ---------- */
+function tileClass(c) {
+  const s = stats[c];
+  if (!s || s.n < 8) return '';
+  const acc = 1 - s.miss / s.n;
+  return acc >= 0.95 ? 'good' : acc >= 0.85 ? 'mid' : 'bad';
+}
+function renderSheet() {
+  const groups = [
+    ['single', 'Single fingers', 'Alone: a letter. With the outer thumb: a capital. With the inner thumb: a bracket. The home row opens ( [ { <, the top row closes ) ] } >.'],
+    ['home', 'Home row pairs', 'With the inner thumb: digits 1–4, 0 and @.'],
+    ['top', 'Top row pairs', 'With the inner thumb: digits 5–9 and #.'],
+    ['cross', 'Cross pairs', 'With the inner thumb: ^ + * = $ &.'],
+    ['punct', 'Punctuation', 'Period is comma with shift.'],
+    ['special', 'Enter and Tab', 'Three fingers. FN and AltGr are one-shot and apply to the next chord: FN, then a digit = F1–F9; FN, 0, a digit = F10–F19.'],
+    ['mod', 'Modifiers and navigation', 'A same-finger pair (top + home) without a thumb is a modifier: hold it, or tap it as a one-shot. With the outer thumb: arrows; with the inner thumb: PgUp/Home/End/PgDn.'],
+  ];
+  const tl = { 1: '⇧', 2: '◆' };
+  let h = `<h2 style="margin:0">Cheat sheet</h2>
+    <p class="note">Both hands have the same chords, so you can use either one (alternating is fastest).
+    Diagram: two rows of fingers (left hand, index finger on the right) and two thumbs: <span style="color:var(--outer)">outer</span>
+    (space, shift) and <span style="color:var(--inner)">inner</span> (backspace, symbols).
+    A chord is sent 70 ms after its first key, so press the fingers together, not one after another.
+    The left edge colour of a tile is your accuracy for that letter (after 8 tries).
+    Holding both outer thumbs together turns on the navigation layer.</p>`;
+  for (const [g, title, note] of groups) {
+    h += `<h3>${title}</h3><p class="note">${esc(note)}</p><div class="tiles">`;
+    for (const [f, outs, grp] of CHORDS) {
+      if (grp !== g) continue;
+      const vals = outs.map((v, t) => v ? `<span class="b${t}">${t ? tl[t] + ' ' : ''}${esc(dispChar(v))}</span>` : '').join('');
+      const k0 = outs[0].length === 1 ? outs[0] : '';
+      h += `<div class="tile ${tileClass(k0)}" data-c="${esc(k0)}">${mini({ f, t: 0 })}<div class="outs mono">${vals}</div>` +
+        `<div class="fing">${esc(describe({ f, t: 0 }))}</div></div>`;
+    }
+    h += '</div>';
+  }
+  h += `<h3>Polish letters</h3><p class="note">${esc('One-shot AltGr (Enter chord + inner thumb), then the base letter. ' +
+    'Add the outer thumb to the letter for a capital. Needs the OS keyboard layout "pl" (Polish programmer\'s).')}</p><div class="tiles">`;
+  for (const [pl, base] of Object.entries(PL_MAP)) {
+    const info = CHAR[pl];
+    h += `<div class="tile ${tileClass(pl)}" data-c="${esc(pl)}">${miniFull(info)}<div class="outs mono">` +
+      `<span class="b0">${pl}</span><span class="b1">⇧ ${pl.toUpperCase()}</span></div>` +
+      `<div class="fing">${esc('AltGr, then ' + base)}</div></div>`;
+  }
+  h += '</div>';
+  h += `<h3>Thumbs alone</h3><table class="plain">
+    <tr><td>outer thumb</td><td>space</td></tr>
+    <tr><td>inner thumb</td><td>backspace</td></tr>
+    <tr><td>outer thumbs of both hands held together</td><td>layer 7: modifiers on the left, arrows and mouse on the right</td></tr>
+    <tr><td>tap dance (top right corner), double tap</td><td>back to layer 0</td></tr></table>
+    <h3>F keys</h3><table class="plain">
+    <tr><td>F1–F9</td><td>FN (Tab + inner thumb), then a digit 1–9 (chord + inner thumb)</td></tr>
+    <tr><td>F10–F19</td><td>FN, then 0, then a digit 0–9</td></tr>
+    <tr><td>Escape</td><td>Enter (index↓ + middle↓ + ring↓) + outer thumb</td></tr></table>`;
+  $('view-sheet').innerHTML = h;
+}
+$('view-sheet').addEventListener('click', e => {
+  const t = e.target.closest('.tile');
+  if (!t || !t.dataset.c) return;
+  const c = t.dataset.c;
+  showTab('practice');
+  const l = { group: '', id: 'char:' + c, name: `Character ${dispChar(c)}`, desc: describe(CHAR[c]),
+    make: n => Array.from({ length: n }, () => /[a-z]/.test(c) ? (Math.random() < 0.5 ? letterDrill(c, 'aoternsi', 1) : c + c) : c).join(' ') };
+  startLesson(l);
+});
+
+/* ---------- Stats ---------- */
+function renderStats() {
+  const rows = Object.entries(stats).filter(([c]) => CHAR[c])
+    .map(([c, s]) => ({ c, n: s.n, miss: s.miss, acc: 100 * (1 - s.miss / s.n), ms: s.n - s.miss ? s.ms / (s.n - s.miss) : 0 }))
+    .sort((a, b) => a.acc - b.acc || b.ms - a.ms);
+  let h = `<h2 style="margin:0 0 10px">Character stats</h2>`;
+  if (!rows.length) h += '<p class="msg">No data yet. Do a few exercises first.</p>';
+  else {
+    h += `<table class="plain"><tr><th>char</th><th>chord</th><th>tries</th><th>errors</th><th>accuracy</th><th>avg time</th><th></th></tr>`;
+    for (const r of rows) {
+      h += `<tr><td class="mono"><b>${esc(dispChar(r.c))}</b></td><td>${miniFull(CHAR[r.c])}</td><td class="num">${r.n}</td>` +
+        `<td class="num">${r.miss}</td><td class="num">${r.acc.toFixed(0)}%</td><td class="num">${Math.round(r.ms)} ms</td>` +
+        `<td><span class="bar" style="width:${Math.min(160, (100 - r.acc) * 4)}px"></span></td></tr>`;
+    }
+    h += '</table>';
+  }
+  const last = history.slice(-20).reverse();
+  if (last.length) {
+    h += `<h3 style="margin-top:24px">Recent exercises</h3><table class="plain"><tr><th>when</th><th>lesson</th><th>wpm</th><th>accuracy</th></tr>`;
+    for (const r of last) {
+      h += `<tr><td>${new Date(r.ts).toLocaleString('en-GB')}</td><td>${esc(r.name)}</td><td class="num">${r.wpm}</td><td class="num">${r.acc}%</td></tr>`;
+    }
+    h += '</table>';
+  }
+  h += `<p style="margin-top:20px"><button id="st-reset">Clear stats and scores</button></p>`;
+  $('view-stats').innerHTML = h;
+  $('st-reset').onclick = () => {
+    if (!$('st-reset').dataset.sure) { $('st-reset').dataset.sure = 1; $('st-reset').textContent = 'Sure? Click again'; return; }
+    stats = {}; progress = {}; history = [];
+    store.set('stats', stats); store.set('progress', progress); store.set('history', history);
+    renderStats(); renderLessons();
+  };
+}
+
+/* ---------- Custom text ---------- */
+function renderCustom() {
+  const box = $('cu-list');
+  box.innerHTML = customs.length ? customs.map((c, i) =>
+    `<div class="s"><span class="nm">${esc(c.name)}</span><span class="meta">${c.text.length} chars${c.code ? ' · code' : ''}</span>` +
+    `<button data-go="${i}">Practice</button><button data-del="${i}">Delete</button></div>`).join('')
+    : '<span class="msg">Nothing saved yet.</span>';
+}
+$('cu-list').addEventListener('click', e => {
+  const go = e.target.dataset.go, del = e.target.dataset.del;
+  if (go !== undefined) { showTab('practice'); startLesson(customLessons()[+go]); }
+  if (del !== undefined) { customs.splice(+del, 1); store.set('custom', customs); renderCustom(); renderLessons(); }
+});
+function readCustom() {
+  const { text, removed } = sanitize($('cu-text').value, $('cu-pl').checked);
+  if (!text) { $('cu-msg').textContent = 'The text is empty.'; return null; }
+  $('cu-msg').textContent = removed ? `Removed ${removed} characters that are not in the layout.` : '';
+  const name = $('cu-name').value.trim() || text.slice(0, 30).replace(/\s+/g, ' ');
+  return { name, text, code: $('cu-code').checked };
+}
+$('cu-go').onclick = () => {
+  const c = readCustom();
+  if (!c) return;
+  showTab('practice');
+  startLesson({ group: 'Custom', id: 'tmp', name: c.name, desc: 'Custom text (not saved).', text: c.text, code: c.code, custom: -1 });
+};
+$('cu-save').onclick = () => {
+  const c = readCustom();
+  if (!c) return;
+  const i = customs.findIndex(x => x.name === c.name);
+  if (i >= 0) customs[i] = c; else customs.push(c);
+  store.set('custom', customs);
+  renderCustom(); renderLessons();
+  $('cu-msg').textContent = `Saved "${c.name}".`;
+};
+$('cu-file').onchange = e => {
+  const f = e.target.files[0];
+  if (!f) return;
+  const r = new FileReader();
+  r.onload = () => {
+    $('cu-text').value = r.result;
+    if (!$('cu-name').value) $('cu-name').value = f.name;
+    $('cu-code').checked = !/\.(txt|md)$/i.test(f.name);
+  };
+  r.readAsText(f);
+};
+$('cu-chunk').value = opt.chunk;
+$('cu-chunk').onchange = e => { opt.chunk = Math.max(100, +e.target.value || 700); saveOpt(); };
+
+/* ---------- Tabs, settings, keys ---------- */
+let tab = 'practice';
+function showTab(t) {
+  tab = t;
+  for (const b of document.querySelectorAll('nav.tabs button')) b.classList.toggle('active', b.dataset.tab === t);
+  for (const v of document.querySelectorAll('.view')) v.classList.toggle('active', v.id === 'view-' + t);
+  if (t === 'sheet') renderSheet();
+  if (t === 'stats') renderStats();
+  if (t === 'custom') renderCustom();
+}
+for (const b of document.querySelectorAll('nav.tabs button')) b.onclick = () => showTab(b.dataset.tab);
+
+function saveOpt() { store.set('opt', opt); }
+const bindSel = (id, key, after) => {
+  const el = $(id);
+  el.value = String(opt[key]);
+  el.onchange = () => { opt[key] = el.value; saveOpt(); el.blur(); after && after(); };
+};
+bindSel('opt-hint', 'hint', () => updateHint());
+bindSel('opt-hand', 'hand', () => { buildKeyboard(); updateHint(); });
+bindSel('opt-len', 'len', () => current.make && startLesson(current));
+const bindChk = (id, key, after) => {
+  const el = $(id);
+  el.checked = !!opt[key];
+  el.onchange = () => { opt[key] = el.checked; saveOpt(); el.blur(); after && after(); };
+};
+bindChk('opt-stop', 'stop', restart);
+bindChk('opt-skip', 'skip', restart);
+
+$('btn-restart').onclick = restart;
+$('btn-new').onclick = () => startLesson(current);
+$('btn-next').onclick = nextLesson;
+$('rs-again').onclick = again;
+$('rs-repeat').onclick = restart;
+$('rs-next').onclick = nextLesson;
+// buttons must not keep focus, or Space/Enter would click them
+document.addEventListener('click', e => { const b = e.target.closest && e.target.closest('button'); if (b) b.blur(); });
+
+document.addEventListener('keydown', e => {
+  if (tab !== 'practice' || !S) return;
+  if (e.target.closest && e.target.closest('input, textarea, select')) return;
+  if (e.ctrlKey || e.metaKey || (e.altKey && !e.getModifierState('AltGraph'))) return;
+  let ch = null;
+  if (e.key === 'Enter') ch = '\n';
+  else if (e.key === 'Tab') ch = '\t';
+  else if (e.key === 'Escape') { e.preventDefault(); restart(); return; }
+  else if (e.key === 'Backspace') { e.preventDefault(); backspace(); return; }
+  else if (e.key.length === 1) ch = e.key;
+  else return;
+  e.preventDefault();
+  if (S.done) { if (ch === ' ' || ch === '\n') again(); return; }
+  typeChar(ch);
+});
+
+function esc(s) {
+  return String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+}
+
+/* ---------- Start ---------- */
+buildKeyboard();
+startLesson(findLesson(store.get('last', 'home')) || LESSONS[0]);
+</script>
+</body>
+</html>

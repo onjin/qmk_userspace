@@ -4,6 +4,11 @@
 // https://github.com/dlip/qmk_firmware/blob/chouchou/users/dlip/taipo.c
 // Copyright 2023 Dane Lipscombe (@dlip)
 //
+// The chord map follows the Taipo reference card (inkeys wiki): a chord
+// alone, + the Space thumb (shift) or + the Backspace thumb (symbols).
+// FN (Tab chord + Backspace thumb) is one-shot: FN, digit = F1-F9 and
+// FN, 0, digit = F10-F19. The Enter chord + Backspace thumb is one-shot AltGr.
+//
 // Changes: table-driven chord map, chords fire TAIPO_CHORD_TERM ms after
 // the first key instead of on release, thumb-only chords never auto-repeat,
 // and holding the Space thumb of both halves together turns on
@@ -35,56 +40,56 @@
 #define K_IT (1 << 8) // inner thumb: Backspace / symbols
 #define K_OT (1 << 9) // outer thumb: Space / shift
 
-#define TAIPO_TO_BASE TO(0)
+// Pseudo keycodes in the chord table, handled in fire().
+#define TAIPO_FN QK_USER_0
+#define TAIPO_ALTGR QK_USER_1
 
 typedef struct {
     uint8_t  chord;
-    uint16_t kc[4]; // alone, + outer thumb, + inner thumb, + both thumbs
+    uint16_t kc[3]; // alone, + outer thumb (shift), + inner thumb (symbols)
 } taipo_chord_t;
 
 // clang-format off
 static const taipo_chord_t chords[] = {
-    {K_R,             {KC_R,    S(KC_R), KC_GT,   KC_PSCR}},
-    {K_S,             {KC_S,    S(KC_S), KC_RCBR, KC_BRIU}},
-    {K_N,             {KC_N,    S(KC_N), KC_RBRC, KC_BRID}},
-    {K_I,             {KC_I,    S(KC_I), KC_RPRN, KC_MPLY}},
-    {K_A,             {KC_A,    S(KC_A), KC_LT,   KC_MNXT}},
-    {K_O,             {KC_O,    S(KC_O), KC_LCBR, KC_VOLU}},
-    {K_T,             {KC_T,    S(KC_T), KC_LBRC, KC_VOLD}},
-    {K_E,             {KC_E,    S(KC_E), KC_LPRN, KC_MPRV}},
-    {K_E | K_O,       {KC_C,    S(KC_C), KC_1,    KC_F1}},
-    {K_T | K_O,       {KC_U,    S(KC_U), KC_2,    KC_F2}},
-    {K_T | K_A,       {KC_Q,    S(KC_Q), KC_3,    KC_F3}},
-    {K_O | K_A,       {KC_L,    S(KC_L), KC_4,    KC_F4}},
-    {K_I | K_N,       {KC_Y,    S(KC_Y), KC_5,    KC_F5}},
-    {K_I | K_S,       {KC_F,    S(KC_F), KC_6,    KC_F6}},
-    {K_N | K_S,       {KC_P,    S(KC_P), KC_7,    KC_F7}},
-    {K_N | K_R,       {KC_Z,    S(KC_Z), KC_8,    KC_F8}},
-    {K_S | K_R,       {KC_B,    S(KC_B), KC_9,    KC_F9}},
-    {K_E | K_T,       {KC_H,    S(KC_H), KC_0,    KC_F10}},
-    {K_E | K_A,       {KC_D,    S(KC_D), KC_AT,   KC_F11}},
-    {K_I | K_R,       {KC_G,    S(KC_G), KC_HASH, KC_F12}},
-    {K_T | K_R,       {KC_X,    S(KC_X), KC_CIRC, C(KC_X)}},
-    {K_I | K_O,       {KC_K,    S(KC_K), KC_PLUS, C(KC_C)}},
-    {K_E | K_S,       {KC_V,    S(KC_V), KC_ASTR, C(KC_V)}},
-    {K_N | K_A,       {KC_J,    S(KC_J), KC_EQL,  C(KC_Z)}},
-    {K_E | K_R,       {KC_M,    S(KC_M), KC_DLR,  KC_NO}},
-    {K_I | K_A,       {KC_W,    S(KC_W), KC_AMPR, KC_NO}},
-    {K_T | K_S,       {KC_SLSH, KC_BSLS, KC_PIPE, KC_NO}},
-    {K_N | K_O,       {KC_MINS, KC_UNDS, KC_PERC, KC_NO}},
-    {K_I | K_T,       {KC_QUES, KC_EXLM, KC_NO,   KC_NO}},
-    {K_E | K_N,       {KC_COMM, KC_DOT,  KC_TILD, KC_NO}},
-    {K_O | K_R,       {KC_SCLN, KC_COLN, KC_NO,   KC_NO}},
-    {K_T | K_O | K_A, {KC_SCLN, KC_COLN, KC_NO,   KC_NO}},
-    {K_S | K_A,       {KC_QUOT, KC_DQUO, KC_GRV,  KC_NO}},
-    {K_N | K_S | K_R, {KC_QUOT, KC_DQUO, KC_GRV,  KC_NO}},
-    {K_I | K_N | K_S, {KC_TAB,  KC_DEL,  KC_INS,  KC_NO}},
-    {K_E | K_T | K_O, {KC_ENT,  KC_ESC,  KC_RALT, KC_NO}},
+    {K_R,             {KC_R,    S(KC_R), KC_GT}},
+    {K_S,             {KC_S,    S(KC_S), KC_RCBR}},
+    {K_N,             {KC_N,    S(KC_N), KC_RBRC}},
+    {K_I,             {KC_I,    S(KC_I), KC_RPRN}},
+    {K_A,             {KC_A,    S(KC_A), KC_LT}},
+    {K_O,             {KC_O,    S(KC_O), KC_LCBR}},
+    {K_T,             {KC_T,    S(KC_T), KC_LBRC}},
+    {K_E,             {KC_E,    S(KC_E), KC_LPRN}},
+    {K_E | K_O,       {KC_C,    S(KC_C), KC_1}},
+    {K_T | K_O,       {KC_U,    S(KC_U), KC_2}},
+    {K_T | K_A,       {KC_Q,    S(KC_Q), KC_3}},
+    {K_O | K_A,       {KC_L,    S(KC_L), KC_4}},
+    {K_I | K_N,       {KC_Y,    S(KC_Y), KC_5}},
+    {K_I | K_S,       {KC_F,    S(KC_F), KC_6}},
+    {K_N | K_S,       {KC_P,    S(KC_P), KC_7}},
+    {K_N | K_R,       {KC_Z,    S(KC_Z), KC_8}},
+    {K_S | K_R,       {KC_B,    S(KC_B), KC_9}},
+    {K_E | K_T,       {KC_H,    S(KC_H), KC_0}},
+    {K_E | K_A,       {KC_D,    S(KC_D), KC_AT}},
+    {K_I | K_R,       {KC_G,    S(KC_G), KC_HASH}},
+    {K_T | K_R,       {KC_X,    S(KC_X), KC_CIRC}},
+    {K_I | K_O,       {KC_K,    S(KC_K), KC_PLUS}},
+    {K_E | K_S,       {KC_V,    S(KC_V), KC_ASTR}},
+    {K_N | K_A,       {KC_J,    S(KC_J), KC_EQL}},
+    {K_E | K_R,       {KC_M,    S(KC_M), KC_DLR}},
+    {K_I | K_A,       {KC_W,    S(KC_W), KC_AMPR}},
+    {K_T | K_S,       {KC_SLSH, KC_BSLS, KC_PIPE}},
+    {K_N | K_O,       {KC_MINS, KC_UNDS, KC_PERC}},
+    {K_I | K_T,       {KC_QUES, KC_EXLM, KC_NO}},
+    {K_E | K_N,       {KC_COMM, KC_DOT,  KC_TILD}},
+    {K_O | K_R,       {KC_SCLN, KC_COLN, KC_NO}},
+    {K_S | K_A,       {KC_QUOT, KC_DQUO, KC_GRV}},
+    {K_I | K_N | K_S, {KC_TAB,  KC_DEL,  TAIPO_FN}},
+    {K_E | K_T | K_O, {KC_ENT,  KC_ESC,  TAIPO_ALTGR}},
     // Same-finger pairs: alone they are modifiers (see pair_mods).
-    {K_A | K_R,       {KC_NO,   KC_RGHT, KC_PGUP, KC_NO}},
-    {K_O | K_S,       {KC_NO,   KC_UP,   KC_HOME, KC_NO}},
-    {K_T | K_N,       {KC_NO,   KC_DOWN, KC_END,  KC_NO}},
-    {K_E | K_I,       {KC_NO,   KC_LEFT, KC_PGDN, TAIPO_TO_BASE}},
+    {K_A | K_R,       {KC_NO,   KC_RGHT, KC_PGUP}},
+    {K_O | K_S,       {KC_NO,   KC_UP,   KC_HOME}},
+    {K_T | K_N,       {KC_NO,   KC_DOWN, KC_END}},
+    {K_E | K_I,       {KC_NO,   KC_LEFT, KC_PGDN}},
 };
 // clang-format on
 
@@ -99,6 +104,9 @@ typedef struct {
 
 static hand_t hands[2];
 static bool   nav_active;
+
+// One-shot FN: FN, digit -> F1-F9; FN, 0, digit -> F10-F19.
+static enum { FN_OFF, FN_ON, FN_TEN } fn_state;
 
 static void clear_hand(hand_t *h) {
     *h = (hand_t){0};
@@ -135,20 +143,48 @@ static uint16_t resolve(uint16_t combo, uint8_t *mods) {
     *mods = pair_mods(combo);
     if (*mods) return KC_NO;
     if (!fingers) return thumbs == 1 ? KC_SPC : thumbs == 2 ? KC_BSPC : KC_NO;
+    if (thumbs == 3) return KC_NO;
     for (uint8_t c = 0; c < ARRAY_SIZE(chords); c++) {
         if (chords[c].chord == fingers) return chords[c].kc[thumbs];
     }
     return KC_NO;
 }
 
+// Applies a pending FN to the chord's keycode. Returns false when the
+// keycode was swallowed (FN itself, or the 0 of FN, 0, digit).
+static bool apply_fn(uint16_t *kc) {
+    if (*kc == TAIPO_FN) {
+        fn_state = FN_ON;
+        *kc      = KC_NO;
+        return false;
+    }
+    if (fn_state == FN_OFF || *kc == KC_NO) return true;
+    bool digit = *kc >= KC_1 && *kc <= KC_0; // KC_1..KC_9, KC_0
+    uint8_t n  = *kc == KC_0 ? 0 : *kc - KC_1 + 1;
+    if (fn_state == FN_ON && digit && n == 0) {
+        fn_state = FN_TEN;
+        *kc      = KC_NO;
+        return false;
+    }
+    if (digit) {
+        if (fn_state == FN_ON) {
+            *kc = KC_F1 + n - 1; // 1-9 -> F1-F9
+        } else {
+            // 0-9 -> F10-F19; F13 and up are not contiguous with F12.
+            *kc = n <= 2 ? KC_F10 + n : KC_F13 + n - 3;
+        }
+    }
+    fn_state = FN_OFF;
+    return true;
+}
+
 static void fire(hand_t *h, bool hold) {
     h->kc = resolve(h->combo, &h->mods);
-    if (h->kc == TAIPO_TO_BASE) {
-        layer_move(0);
-        clear_hand(&hands[0]);
-        clear_hand(&hands[1]);
-        return;
+    if (h->kc == TAIPO_ALTGR) {
+        h->kc   = KC_NO;
+        h->mods = MOD_BIT(KC_RALT);
     }
+    if (!apply_fn(&h->kc)) return;
     if (hold) {
         h->held = true;
         if (h->mods) {
