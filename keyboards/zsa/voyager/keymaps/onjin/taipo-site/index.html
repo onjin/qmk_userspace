@@ -206,6 +206,47 @@ table.plain th { color: var(--mute); font-weight: 500; font-size: 12.5px; }
 table.plain td.num { text-align: right; font-variant-numeric: tabular-nums; }
 .bar { display: inline-block; height: 8px; background: var(--err); border-radius: 2px; vertical-align: middle; }
 
+/* lookup: QWERTY / A-Z */
+.lk-head { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; margin-bottom: 10px; }
+.lk-head h2 { margin: 0; font-size: 20px; }
+.lk-head .seg { display: inline-flex; }
+.lk-head .seg button { border-radius: 0; }
+.lk-head .seg button:first-child { border-radius: 7px 0 0 7px; }
+.lk-head .seg button:last-child { border-radius: 0 7px 7px 0; border-left: 0; }
+.lk-head .seg button.active { background: var(--fing); border-color: var(--fing); color: #fff; }
+.lk-rows { display: grid; gap: 5px; overflow-x: auto; padding-bottom: 4px; }
+.lk-row { display: flex; gap: 5px; }
+.lk-key {
+  width: 66px; min-width: 66px; height: 78px; background: var(--panel); border: 1px solid var(--line);
+  border-radius: 8px; padding: 4px 5px; display: grid; grid-template-rows: 1fr 1fr; gap: 2px;
+  border-bottom: 3px solid var(--line); cursor: pointer;
+}
+.lk-key:hover { border-color: var(--mute); }
+.lk-key.good { border-bottom-color: var(--ok); }
+.lk-key.mid { border-bottom-color: var(--inner); }
+.lk-key.bad { border-bottom-color: var(--err); }
+.lk-key.wide { width: 96px; min-width: 96px; }
+.lk-key.space { width: 300px; }
+.lk-key.dead { visibility: hidden; cursor: default; }
+.lk-key .c { display: flex; align-items: center; justify-content: space-between; gap: 4px; }
+.lk-key .c b { font-size: 19px; font-weight: 600; line-height: 1; }
+.lk-key .c.sh b { font-size: 14px; color: var(--outer); }
+.lk-key .c small { font-size: 11px; color: var(--mute); }
+.lk-key .c:only-child { grid-row: 1 / -1; flex-direction: column; justify-content: center; }
+.lk-key .c:only-child b { font-size: 24px; }
+.mini.s { grid-template-columns: repeat(4, 7px); grid-auto-rows: 7px; gap: 1px; }
+.mini.s i { border-radius: 1.5px; }
+.lk-key .c:only-child .mini.s { grid-template-columns: repeat(4, 9px); grid-auto-rows: 9px; }
+.lk-az { display: grid; grid-template-columns: repeat(auto-fill, minmax(78px, 1fr)); gap: 5px; }
+.lk-az .lk-key { width: auto; min-width: 0; height: 70px; grid-template-rows: 1fr; }
+.lk-az h4 { grid-column: 1 / -1; margin: 8px 0 0; font-size: 12px; font-weight: 500; color: var(--mute);
+  text-transform: uppercase; letter-spacing: .6px; }
+.lk-note { color: var(--mute); font-size: 13px; margin: 10px 0 0; }
+body.popup header, body.popup aside { display: none; }
+body.popup .app { display: block; min-height: 0; }
+body.popup main { padding: 8px 10px; }
+body.popup .lk-head h2, body.popup .lk-note, body.popup #lk-pop { display: none; }
+
 /* custom text */
 .custom { display: grid; gap: 10px; max-width: 980px; }
 .custom textarea { width: 100%; min-height: 260px; font-size: 14px; resize: vertical; }
@@ -236,6 +277,7 @@ table.plain td.num { text-align: right; font-variant-numeric: tabular-nums; }
   <nav class="tabs">
     <button data-tab="practice" class="active">Practice</button>
     <button data-tab="sheet">Cheat sheet</button>
+    <button data-tab="lookup" title="Find a character by its QWERTY key or alphabetically">Lookup</button>
     <button data-tab="custom">Custom text</button>
     <button data-tab="stats">Stats</button>
   </nav>
@@ -324,6 +366,8 @@ table.plain td.num { text-align: right; font-variant-numeric: tabular-nums; }
     </section>
 
     <section class="view sheet" id="view-sheet"></section>
+
+    <section class="view" id="view-lookup"></section>
 
     <section class="view" id="view-custom">
       <div class="custom">
@@ -547,6 +591,33 @@ func main() {
 	fmt.Println(l)
 }
 </script>
+<script type="text/plain" class="src" data-kind="code" data-name="Java">
+import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
+
+public record Session(String user, int wpm, double accuracy) {}
+
+public final class Stats {
+    private final List<Session> sessions;
+
+    public Stats(List<Session> sessions) {
+        this.sessions = List.copyOf(sessions);
+    }
+
+    public Map<String, Double> averageWpm() {
+        return sessions.stream()
+            .filter(s -> s.accuracy() >= 0.95)
+            .collect(Collectors.groupingBy(Session::user,
+                Collectors.averagingInt(Session::wpm)));
+    }
+
+    @Override
+    public String toString() {
+        return "Stats[" + sessions.size() + " sessions]";
+    }
+}
+</script>
 <script type="text/plain" class="src" data-kind="code" data-name="SQL">
 SELECT u.id, u.name, COUNT(s.id) AS sessions, AVG(s.wpm) AS avg_wpm
 FROM users AS u
@@ -678,7 +749,7 @@ const store = {
   set(k, v) { try { localStorage.setItem('taipo.' + k, JSON.stringify(v)); } catch (e) { /* storage unavailable */ } },
 };
 const opt = Object.assign(
-  { hint: 'always', hand: 'both', len: 30, stop: true, skip: true, chunk: 700 },
+  { hint: 'always', hand: 'both', len: 30, stop: true, skip: true, chunk: 700, lookup: 'qwerty' },
   store.get('opt', {}));
 let stats = store.get('stats', {});        // char -> { n, miss, ms }
 let progress = store.get('progress', {});  // lesson -> { wpm, acc, runs }
@@ -1172,9 +1243,9 @@ function paintKeys(info) {
     }
   }
 }
-function mini(info, label) {
+function mini(info, label, cls = '') {
   const side = opt.hand === 'right' ? 'right' : 'left';
-  let h = '<span class="mini" title="' + esc(label || describe(info)) + '">';
+  let h = `<span class="mini ${cls}" title="` + esc(label || describe(info)) + '">';
   for (const row of ROWS[side]) for (const k of row) h += `<i class="${info.f.includes(k) ? 'on' : ''}"></i>`;
   const th = side === 'left' ? ['gap', 'gap', 'o', 'i'] : ['i', 'o', 'gap', 'gap'];
   for (const t of th) {
@@ -1301,12 +1372,106 @@ function renderSheet() {
 }
 $('view-sheet').addEventListener('click', e => {
   const t = e.target.closest('.tile');
-  if (!t || !t.dataset.c) return;
-  const c = t.dataset.c;
+  if (t && t.dataset.c) drillChar(t.dataset.c);
+});
+function drillChar(c) {
+  if (!CHAR[c]) return;
   showTab('practice');
   const l = { group: '', id: 'char:' + c, name: `Character ${dispChar(c)}`, desc: describe(CHAR[c]),
     make: n => Array.from({ length: n }, () => /[a-z]/.test(c) ? (Math.random() < 0.5 ? letterDrill(c, 'aoternsi', 1) : c + c) : c).join(' ') };
   startLesson(l);
+}
+
+/* ---------- Lookup: QWERTY / A-Z ---------- */
+// QWERTY rows as [base, shifted] pairs; a string is a named key.
+const LK_ROWS = [
+  ['`~', '1!', '2@', '3#', '4$', '5%', '6^', '7&', '8*', '9(', '0)', '-_', '=+', 'Bksp'],
+  ['Tab', 'qQ', 'wW', 'eE', 'rR', 'tT', 'yY', 'uU', 'iI', 'oO', 'pP', '[{', ']}', '\\|'],
+  ['Esc', 'aA', 'sS', 'dD', 'fF', 'gG', 'hH', 'jJ', 'kK', 'lL', ';:', "'\"", 'Enter'],
+  ['', 'zZ', 'xX', 'cC', 'vV', 'bB', 'nN', 'mM', ',<', '.>', '/?'],
+  ['Space'],
+];
+const LK_NAMED = {
+  Bksp: { info: { f: '', t: 2 }, label: '⌫' }, Tab: { info: CHAR['\t'], label: '⇥', c: '\t' },
+  Esc: { info: { f: 'ETO', t: 1 }, label: 'Esc' }, Enter: { info: CHAR['\n'], label: '↵', c: '\n' },
+  Space: { info: CHAR[' '], label: '␣ space' },
+};
+function lkCell(c, info, label, sh) {
+  if (!info) return `<div class="c"><b>${esc(label || c)}</b><small>—</small></div>`;
+  if (info.altgr) return `<div class="c sh"><small>AltGr, then</small></div>` +
+    `<div class="c"><b>${esc(c)}</b>${mini(info, describe(info), 's')}</div>`;
+  return `<div class="c${sh ? ' sh' : ''}"><b>${esc(label || dispChar(c))}</b>${mini(info, '', 's')}</div>`;
+}
+function lkKey(c, sh, extra = '') {
+  const tip = describe(CHAR[c]) + (sh ? `\nshift: ${sh} = ${describe(CHAR[sh])}` : '');
+  return `<div class="lk-key ${tileClass(c)} ${extra}" data-c="${esc(c)}" title="${esc(dispChar(c) + ': ' + tip)}">` +
+    (sh ? lkCell(sh, CHAR[sh], '', true) : '') + lkCell(c, CHAR[c]) + '</div>';
+}
+function renderLookup() {
+  const mode = opt.lookup === 'az' ? 'az' : 'qwerty';
+  let h = `<div class="lk-head"><h2>Lookup</h2><span class="seg">
+    <button data-mode="qwerty" class="${mode === 'qwerty' ? 'active' : ''}">QWERTY</button>
+    <button data-mode="az" class="${mode === 'az' ? 'active' : ''}">A–Z</button></span>
+    <button id="lk-pop" title="Open in a small window to keep next to other apps">⧉ Small window</button></div>`;
+  if (mode === 'qwerty') {
+    h += '<div class="lk-rows">';
+    for (const row of LK_ROWS) {
+      h += `<div class="lk-row" style="padding-left:${[0, 0, 12, 0, 230][LK_ROWS.indexOf(row)]}px">`;
+      for (const k of row) {
+        if (!k) { h += '<div class="lk-key wide dead"></div>'; continue; }
+        const n = LK_NAMED[k];
+        if (n) {
+          const cls = k === 'Space' ? 'space' : 'wide';
+          h += `<div class="lk-key ${cls}" ${n.c ? `data-c="${esc(n.c)}"` : ''} title="${esc(k + ': ' + describe(n.info))}">${lkCell(k, n.info, n.label)}</div>`;
+          continue;
+        }
+        const [b, s] = [...k];
+        h += lkKey(b, /[a-z]/.test(b) ? '' : s);
+      }
+      h += '</div>';
+    }
+    h += '</div><div class="lk-row" style="margin-top:14px">';
+    for (const pl of PL_CHARS) h += lkKey(pl);
+    h += '</div>';
+  } else {
+    const letters = [...'abcdefghijklmnopqrstuvwxyz'].flatMap(c => [c, ...[...PL_CHARS].filter(p => PL_MAP[p] === c)]);
+    const digits = [...'0123456789'];
+    const syms = Object.keys(CHAR).filter(c => c.length === 1 && !/[a-zA-Z0-9 \t\n]/.test(c) && !PL_CHARS.includes(c.toLowerCase()))
+      .sort((a, b) => a.charCodeAt(0) - b.charCodeAt(0));
+    h += '<div class="lk-az"><h4>Letters (add the outer thumb for a capital)</h4>';
+    for (const c of letters) h += lkKey(c);
+    h += '<h4>Digits (inner thumb)</h4>';
+    for (const c of digits) h += lkKey(c);
+    h += '<h4>Symbols</h4>';
+    for (const c of syms) h += lkKey(c);
+    h += '<h4>Keys</h4>';
+    for (const k of ['Space', 'Bksp', 'Enter', 'Tab', 'Esc']) {
+      const n = LK_NAMED[k];
+      h += `<div class="lk-key" ${n.c ? `data-c="${esc(n.c)}"` : ''} title="${esc(k + ': ' + describe(n.info))}">${lkCell(k, n.info, n.label)}</div>`;
+    }
+    h += '</div>';
+  }
+  h += `<p class="lk-note">Each key shows its chord (<span style="color:var(--outer)">green</span> = outer thumb,
+    <span style="color:var(--inner)">orange</span> = inner thumb); the small top line is the shifted character.
+    Hover for the finger names; click to practise that character.</p>`;
+  $('view-lookup').innerHTML = h;
+}
+$('view-lookup').addEventListener('click', e => {
+  const m = e.target.closest('[data-mode]');
+  if (m) { opt.lookup = m.dataset.mode; saveOpt(); renderLookup(); return; }
+  if (e.target.closest('#lk-pop')) {
+    const w = opt.lookup === 'az' ? 780 : 1080, ht = opt.lookup === 'az' ? 700 : 600;
+    window.open(location.pathname + '?popup#lookup', 'taipo-lookup', `popup,width=${w},height=${ht}`);
+    return;
+  }
+  const k = e.target.closest('.lk-key');
+  if (k && k.dataset.c && !document.body.classList.contains('popup')) drillChar(k.dataset.c);
+});
+// keep the popup in sync with mode/hand/stats changes made in the main window
+window.addEventListener('storage', e => {
+  if (e.key === 'taipo.opt') Object.assign(opt, store.get('opt', {}));
+  if (e.key === 'taipo.stats') stats = store.get('stats', {});
+  if (tab === 'lookup') renderLookup();
 });
 
 /* ---------- Stats ---------- */
@@ -1399,6 +1564,7 @@ function showTab(t) {
   for (const b of document.querySelectorAll('nav.tabs button')) b.classList.toggle('active', b.dataset.tab === t);
   for (const v of document.querySelectorAll('.view')) v.classList.toggle('active', v.id === 'view-' + t);
   if (t === 'sheet') renderSheet();
+  if (t === 'lookup') renderLookup();
   if (t === 'stats') renderStats();
   if (t === 'custom') renderCustom();
 }
@@ -1453,6 +1619,11 @@ function esc(s) {
 /* ---------- Start ---------- */
 buildKeyboard();
 startLesson(findLesson(store.get('last', 'home')) || LESSONS[0]);
+if (new URLSearchParams(location.search).has('popup')) {
+  document.body.classList.add('popup');
+  document.title = 'Taipo lookup';
+}
+if (location.hash === '#lookup') showTab('lookup');
 </script>
 </body>
 </html>
