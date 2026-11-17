@@ -90,8 +90,8 @@ const uint16_t PROGMEM keymaps[][MATRIX_ROWS][MATRIX_COLS] = {
 // Base layer combos: the Taipo chords (see taipo.c) on QWER/ASDF and
 // UIOP/JKL;. The inner thumb (Backspace / Enter) is the Taipo symbol thumb,
 // the outer thumb (Space) the Taipo shift thumb. Only chords that need a
-// thumb or three fingers are mapped, two-finger letter chords would misfire
-// while typing.
+// thumb or three fingers are mapped: two-finger chords and one finger +
+// Space would fire while typing (measured with keylog/, see README.md).
 #define L_A MT(MOD_LGUI, KC_A)
 #define L_S MT(MOD_LALT, KC_S)
 #define L_D MT(MOD_LCTL, KC_D)
@@ -110,12 +110,14 @@ enum combo_events {
   CB_L_LPRN, CB_L_LBRC, CB_L_LCBR, CB_L_LT, CB_L_RPRN, CB_L_RBRC, CB_L_RCBR, CB_L_GT,
   CB_L_1, CB_L_2, CB_L_3, CB_L_4, CB_L_5, CB_L_6, CB_L_7, CB_L_8,
   CB_L_9, CB_L_0, CB_L_AT, CB_L_HASH, CB_L_CIRC, CB_L_PLUS, CB_L_ASTR, CB_L_EQL,
-  CB_L_DLR, CB_L_AMPR, CB_L_PIPE, CB_L_PERC, CB_L_TILD, CB_L_GRV, CB_L_ENT, CB_L_ESC,
-  CB_L_TAB, CB_R_LPRN, CB_R_LBRC, CB_R_LCBR, CB_R_LT, CB_R_RPRN, CB_R_RBRC, CB_R_RCBR,
+  CB_L_DLR, CB_L_AMPR, CB_L_PIPE, CB_L_PERC, CB_L_TILD, CB_L_GRV, CB_L_BSLS, CB_L_UNDS,
+  CB_L_EXLM, CB_L_DOT, CB_L_COLN, CB_L_DQUO, CB_L_TAB, CB_L_DEL, CB_L_ENT, CB_L_ESC,
+  CB_L_ALTGR, CB_R_LPRN, CB_R_LBRC, CB_R_LCBR, CB_R_LT, CB_R_RPRN, CB_R_RBRC, CB_R_RCBR,
   CB_R_GT, CB_R_1, CB_R_2, CB_R_3, CB_R_4, CB_R_5, CB_R_6, CB_R_7,
   CB_R_8, CB_R_9, CB_R_0, CB_R_AT, CB_R_HASH, CB_R_CIRC, CB_R_PLUS, CB_R_ASTR,
-  CB_R_EQL, CB_R_DLR, CB_R_AMPR, CB_R_PIPE, CB_R_PERC, CB_R_TILD, CB_R_GRV, CB_R_ENT,
-  CB_R_ESC, CB_R_TAB,
+  CB_R_EQL, CB_R_DLR, CB_R_AMPR, CB_R_PIPE, CB_R_PERC, CB_R_TILD, CB_R_GRV, CB_R_BSLS,
+  CB_R_UNDS, CB_R_EXLM, CB_R_DOT, CB_R_COLN, CB_R_DQUO, CB_R_TAB, CB_R_DEL, CB_R_ENT,
+  CB_R_ESC, CB_R_ALTGR,
 };
 
 const uint16_t PROGMEM cb_l_lprn[] = { L_F, L_IT, COMBO_END};
@@ -148,9 +150,17 @@ const uint16_t PROGMEM cb_l_pipe[] = { L_D, KC_W, L_IT, COMBO_END};
 const uint16_t PROGMEM cb_l_perc[] = { KC_E, L_S, L_IT, COMBO_END};
 const uint16_t PROGMEM cb_l_tild[] = { L_F, KC_E, L_IT, COMBO_END};
 const uint16_t PROGMEM cb_l_grv[] = { KC_W, L_A, L_IT, COMBO_END};
+const uint16_t PROGMEM cb_l_bsls[] = { L_D, KC_W, L_OT, COMBO_END};
+const uint16_t PROGMEM cb_l_unds[] = { KC_E, L_S, L_OT, COMBO_END};
+const uint16_t PROGMEM cb_l_exlm[] = { KC_R, L_D, L_OT, COMBO_END};
+const uint16_t PROGMEM cb_l_dot[] = { L_F, KC_E, L_OT, COMBO_END};
+const uint16_t PROGMEM cb_l_coln[] = { L_S, KC_Q, L_OT, COMBO_END};
+const uint16_t PROGMEM cb_l_dquo[] = { KC_W, L_A, L_OT, COMBO_END};
+const uint16_t PROGMEM cb_l_tab[] = { KC_R, KC_E, KC_W, COMBO_END};
+const uint16_t PROGMEM cb_l_del[] = { KC_R, KC_E, KC_W, L_OT, COMBO_END};
 const uint16_t PROGMEM cb_l_ent[] = { L_F, L_D, L_S, COMBO_END};
 const uint16_t PROGMEM cb_l_esc[] = { L_F, L_D, L_S, L_OT, COMBO_END};
-const uint16_t PROGMEM cb_l_tab[] = { KC_R, KC_E, KC_W, COMBO_END};
+const uint16_t PROGMEM cb_l_altgr[] = { L_F, L_D, L_S, L_IT, COMBO_END};
 const uint16_t PROGMEM cb_r_lprn[] = { R_J, R_IT, COMBO_END};
 const uint16_t PROGMEM cb_r_lbrc[] = { R_K, R_IT, COMBO_END};
 const uint16_t PROGMEM cb_r_lcbr[] = { R_L, R_IT, COMBO_END};
@@ -181,9 +191,17 @@ const uint16_t PROGMEM cb_r_pipe[] = { R_K, KC_O, R_IT, COMBO_END};
 const uint16_t PROGMEM cb_r_perc[] = { KC_I, R_L, R_IT, COMBO_END};
 const uint16_t PROGMEM cb_r_tild[] = { R_J, KC_I, R_IT, COMBO_END};
 const uint16_t PROGMEM cb_r_grv[] = { KC_O, R_SC, R_IT, COMBO_END};
+const uint16_t PROGMEM cb_r_bsls[] = { R_K, KC_O, R_OT, COMBO_END};
+const uint16_t PROGMEM cb_r_unds[] = { KC_I, R_L, R_OT, COMBO_END};
+const uint16_t PROGMEM cb_r_exlm[] = { KC_U, R_K, R_OT, COMBO_END};
+const uint16_t PROGMEM cb_r_dot[] = { R_J, KC_I, R_OT, COMBO_END};
+const uint16_t PROGMEM cb_r_coln[] = { R_L, KC_P, R_OT, COMBO_END};
+const uint16_t PROGMEM cb_r_dquo[] = { KC_O, R_SC, R_OT, COMBO_END};
+const uint16_t PROGMEM cb_r_tab[] = { KC_U, KC_I, KC_O, COMBO_END};
+const uint16_t PROGMEM cb_r_del[] = { KC_U, KC_I, KC_O, R_OT, COMBO_END};
 const uint16_t PROGMEM cb_r_ent[] = { R_J, R_K, R_L, COMBO_END};
 const uint16_t PROGMEM cb_r_esc[] = { R_J, R_K, R_L, R_OT, COMBO_END};
-const uint16_t PROGMEM cb_r_tab[] = { KC_U, KC_I, KC_O, COMBO_END};
+const uint16_t PROGMEM cb_r_altgr[] = { R_J, R_K, R_L, R_IT, COMBO_END};
 
 combo_t key_combos[] = {
     [CB_L_LPRN] = COMBO(cb_l_lprn, KC_LPRN),
@@ -216,9 +234,17 @@ combo_t key_combos[] = {
     [CB_L_PERC] = COMBO(cb_l_perc, KC_PERC),
     [CB_L_TILD] = COMBO(cb_l_tild, KC_TILD),
     [CB_L_GRV] = COMBO(cb_l_grv, KC_GRV),
+    [CB_L_BSLS] = COMBO(cb_l_bsls, KC_BSLS),
+    [CB_L_UNDS] = COMBO(cb_l_unds, KC_UNDS),
+    [CB_L_EXLM] = COMBO(cb_l_exlm, KC_EXLM),
+    [CB_L_DOT] = COMBO(cb_l_dot, KC_DOT),
+    [CB_L_COLN] = COMBO(cb_l_coln, KC_COLN),
+    [CB_L_DQUO] = COMBO(cb_l_dquo, KC_DQUO),
+    [CB_L_TAB] = COMBO(cb_l_tab, KC_TAB),
+    [CB_L_DEL] = COMBO(cb_l_del, KC_DEL),
     [CB_L_ENT] = COMBO(cb_l_ent, KC_ENTER),
     [CB_L_ESC] = COMBO(cb_l_esc, KC_ESCAPE),
-    [CB_L_TAB] = COMBO(cb_l_tab, KC_TAB),
+    [CB_L_ALTGR] = COMBO(cb_l_altgr, OSM(MOD_RALT)),
     [CB_R_LPRN] = COMBO(cb_r_lprn, KC_LPRN),
     [CB_R_LBRC] = COMBO(cb_r_lbrc, KC_LBRC),
     [CB_R_LCBR] = COMBO(cb_r_lcbr, KC_LCBR),
@@ -249,18 +275,33 @@ combo_t key_combos[] = {
     [CB_R_PERC] = COMBO(cb_r_perc, KC_PERC),
     [CB_R_TILD] = COMBO(cb_r_tild, KC_TILD),
     [CB_R_GRV] = COMBO(cb_r_grv, KC_GRV),
+    [CB_R_BSLS] = COMBO(cb_r_bsls, KC_BSLS),
+    [CB_R_UNDS] = COMBO(cb_r_unds, KC_UNDS),
+    [CB_R_EXLM] = COMBO(cb_r_exlm, KC_EXLM),
+    [CB_R_DOT] = COMBO(cb_r_dot, KC_DOT),
+    [CB_R_COLN] = COMBO(cb_r_coln, KC_COLN),
+    [CB_R_DQUO] = COMBO(cb_r_dquo, KC_DQUO),
+    [CB_R_TAB] = COMBO(cb_r_tab, KC_TAB),
+    [CB_R_DEL] = COMBO(cb_r_del, KC_DEL),
     [CB_R_ENT] = COMBO(cb_r_ent, KC_ENTER),
     [CB_R_ESC] = COMBO(cb_r_esc, KC_ESCAPE),
-    [CB_R_TAB] = COMBO(cb_r_tab, KC_TAB),
+    [CB_R_ALTGR] = COMBO(cb_r_altgr, OSM(MOD_RALT)),
 };
 
-// Three- and four-key chords get the Taipo chord term. QMK waits for the
-// longest term of all candidates, so finger + thumb waits for it too.
+// Combo terms from keylog measurements (2026-11-17): deliberate chords with
+// the inner thumb take up to ~75 ms, typing never held such keys together
+// under 130 ms. Space and three-finger chords: deliberate mostly under 35 ms,
+// typing overlaps from 35 ms (one-finger + Space, not mapped) and 74 ms.
+#define COMBO_TERM_INNER_THUMB 70
+#define COMBO_TERM_OTHER 50
 uint16_t get_combo_term(uint16_t index, combo_t *combo) {
-    uint8_t n = 0;
-    for (const uint16_t *k = combo->keys; pgm_read_word(k) != COMBO_END; k++) n++;
-    return n >= 3 ? TAIPO_CHORD_TERM : COMBO_TERM;
+    for (const uint16_t *k = combo->keys; pgm_read_word(k) != COMBO_END; k++) {
+        uint16_t kc = pgm_read_word(k);
+        if (kc == L_IT || kc == R_IT) return COMBO_TERM_INNER_THUMB;
+    }
+    return COMBO_TERM_OTHER;
 }
+
 
 
 
