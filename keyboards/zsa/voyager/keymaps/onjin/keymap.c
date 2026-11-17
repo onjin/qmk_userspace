@@ -87,28 +87,89 @@ const uint16_t PROGMEM keymaps[][MATRIX_ROWS][MATRIX_COLS] = {
 };
 
 
-const uint16_t PROGMEM combo0[] = { MT(MOD_LALT, KC_S), MT(MOD_LCTL, KC_D), COMBO_END};
-const uint16_t PROGMEM combo1[] = { KC_W, KC_E, COMBO_END};
-const uint16_t PROGMEM combo2[] = { MT(MOD_RSFT, KC_J), MT(MOD_RCTL, KC_K), COMBO_END};
-const uint16_t PROGMEM combo3[] = { KC_U, KC_I, COMBO_END};
-const uint16_t PROGMEM combo4[] = { MT(MOD_RCTL, KC_K), MT(MOD_LALT, KC_L), COMBO_END};
-const uint16_t PROGMEM combo5[] = { KC_I, KC_O, COMBO_END};
-const uint16_t PROGMEM combo6[] = { KC_COMMA, MT(MOD_RALT, KC_DOT), COMBO_END};
-const uint16_t PROGMEM combo7[] = { MT(MOD_RGUI, KC_SCLN), MT(MOD_LALT, KC_L), COMBO_END};
-const uint16_t PROGMEM combo8[] = { KC_P, KC_O, COMBO_END};
-const uint16_t PROGMEM combo9[] = { KC_M, KC_COMMA, COMBO_END};
+// Base layer combos. Brackets, Enter, Tab and Esc use the Taipo chords
+// (see taipo.c): QWER/ASDF and UIOP/JKL; play the Taipo finger keys, the
+// inner thumb (Backspace / Enter) is the Taipo symbol thumb and the outer
+// thumb (Space) is the Taipo shift thumb.
+#define L_A MT(MOD_LGUI, KC_A)
+#define L_S MT(MOD_LALT, KC_S)
+#define L_D MT(MOD_LCTL, KC_D)
+#define L_F MT(MOD_LSFT, KC_F)
+#define L_OT LT(4, KC_SPACE)
+#define L_IT KC_BSPC
+#define R_J MT(MOD_RSFT, KC_J)
+#define R_K MT(MOD_RCTL, KC_K)
+#define R_L MT(MOD_LALT, KC_L)
+#define R_SC MT(MOD_RGUI, KC_SCLN)
+#define R_IT LT(3, KC_ENTER)
+#define R_OT LT(2, KC_SPACE)
 
-combo_t key_combos[COMBO_COUNT] = {
-    COMBO(combo0, KC_ESCAPE),
-    COMBO(combo1, KC_TAB),
-    COMBO(combo2, KC_LPRN),
-    COMBO(combo3, KC_LBRC),
-    COMBO(combo4, KC_RPRN),
-    COMBO(combo5, KC_RBRC),
-    COMBO(combo6, KC_RCBR),
-    COMBO(combo7, KC_DQUO),
-    COMBO(combo8, KC_QUOTE),
-    COMBO(combo9, KC_LCBR),
+enum combo_events {
+  CB_ESC_OLD, CB_TAB_OLD, CB_DQUO, CB_QUOT,
+  // Taipo: finger + inner thumb
+  CB_L_LPRN, CB_L_LBRC, CB_L_LCBR, CB_L_LT, CB_L_RPRN, CB_L_RBRC, CB_L_RCBR, CB_L_GT,
+  CB_R_LPRN, CB_R_LBRC, CB_R_LCBR, CB_R_LT, CB_R_RPRN, CB_R_RBRC, CB_R_RCBR, CB_R_GT,
+  // Taipo: Enter = E+T+O, Esc = Enter + outer thumb, Tab = I+N+S
+  CB_L_ENT, CB_L_ESC, CB_L_TAB, CB_R_ENT, CB_R_ESC, CB_R_TAB,
+  COMBO_LENGTH
+};
+
+const uint16_t PROGMEM cb_esc_old[] = { L_S, L_D, COMBO_END};
+const uint16_t PROGMEM cb_tab_old[] = { KC_W, KC_E, COMBO_END};
+const uint16_t PROGMEM cb_dquo[]    = { R_SC, R_L, COMBO_END};
+const uint16_t PROGMEM cb_quot[]    = { KC_P, KC_O, COMBO_END};
+
+const uint16_t PROGMEM cb_l_lprn[] = { L_F, L_IT, COMBO_END};
+const uint16_t PROGMEM cb_l_lbrc[] = { L_D, L_IT, COMBO_END};
+const uint16_t PROGMEM cb_l_lcbr[] = { L_S, L_IT, COMBO_END};
+const uint16_t PROGMEM cb_l_lt[]   = { L_A, L_IT, COMBO_END};
+const uint16_t PROGMEM cb_l_rprn[] = { KC_R, L_IT, COMBO_END};
+const uint16_t PROGMEM cb_l_rbrc[] = { KC_E, L_IT, COMBO_END};
+const uint16_t PROGMEM cb_l_rcbr[] = { KC_W, L_IT, COMBO_END};
+const uint16_t PROGMEM cb_l_gt[]   = { KC_Q, L_IT, COMBO_END};
+const uint16_t PROGMEM cb_r_lprn[] = { R_J, R_IT, COMBO_END};
+const uint16_t PROGMEM cb_r_lbrc[] = { R_K, R_IT, COMBO_END};
+const uint16_t PROGMEM cb_r_lcbr[] = { R_L, R_IT, COMBO_END};
+const uint16_t PROGMEM cb_r_lt[]   = { R_SC, R_IT, COMBO_END};
+const uint16_t PROGMEM cb_r_rprn[] = { KC_U, R_IT, COMBO_END};
+const uint16_t PROGMEM cb_r_rbrc[] = { KC_I, R_IT, COMBO_END};
+const uint16_t PROGMEM cb_r_rcbr[] = { KC_O, R_IT, COMBO_END};
+const uint16_t PROGMEM cb_r_gt[]   = { KC_P, R_IT, COMBO_END};
+
+const uint16_t PROGMEM cb_l_ent[] = { L_F, L_D, L_S, COMBO_END};
+const uint16_t PROGMEM cb_l_esc[] = { L_F, L_D, L_S, L_OT, COMBO_END};
+const uint16_t PROGMEM cb_l_tab[] = { KC_R, KC_E, KC_W, COMBO_END};
+const uint16_t PROGMEM cb_r_ent[] = { R_J, R_K, R_L, COMBO_END};
+const uint16_t PROGMEM cb_r_esc[] = { R_J, R_K, R_L, R_OT, COMBO_END};
+const uint16_t PROGMEM cb_r_tab[] = { KC_U, KC_I, KC_O, COMBO_END};
+
+combo_t key_combos[] = {
+    [CB_ESC_OLD] = COMBO(cb_esc_old, KC_ESCAPE),
+    [CB_TAB_OLD] = COMBO(cb_tab_old, KC_TAB),
+    [CB_DQUO]    = COMBO(cb_dquo, KC_DQUO),
+    [CB_QUOT]    = COMBO(cb_quot, KC_QUOTE),
+    [CB_L_LPRN] = COMBO(cb_l_lprn, KC_LPRN),
+    [CB_L_LBRC] = COMBO(cb_l_lbrc, KC_LBRC),
+    [CB_L_LCBR] = COMBO(cb_l_lcbr, KC_LCBR),
+    [CB_L_LT]   = COMBO(cb_l_lt,   KC_LT),
+    [CB_L_RPRN] = COMBO(cb_l_rprn, KC_RPRN),
+    [CB_L_RBRC] = COMBO(cb_l_rbrc, KC_RBRC),
+    [CB_L_RCBR] = COMBO(cb_l_rcbr, KC_RCBR),
+    [CB_L_GT]   = COMBO(cb_l_gt,   KC_GT),
+    [CB_R_LPRN] = COMBO(cb_r_lprn, KC_LPRN),
+    [CB_R_LBRC] = COMBO(cb_r_lbrc, KC_LBRC),
+    [CB_R_LCBR] = COMBO(cb_r_lcbr, KC_LCBR),
+    [CB_R_LT]   = COMBO(cb_r_lt,   KC_LT),
+    [CB_R_RPRN] = COMBO(cb_r_rprn, KC_RPRN),
+    [CB_R_RBRC] = COMBO(cb_r_rbrc, KC_RBRC),
+    [CB_R_RCBR] = COMBO(cb_r_rcbr, KC_RCBR),
+    [CB_R_GT]   = COMBO(cb_r_gt,   KC_GT),
+    [CB_L_ENT] = COMBO(cb_l_ent, KC_ENTER),
+    [CB_L_ESC] = COMBO(cb_l_esc, KC_ESCAPE),
+    [CB_L_TAB] = COMBO(cb_l_tab, KC_TAB),
+    [CB_R_ENT] = COMBO(cb_r_ent, KC_ENTER),
+    [CB_R_ESC] = COMBO(cb_r_esc, KC_ESCAPE),
+    [CB_R_TAB] = COMBO(cb_r_tab, KC_TAB),
 };
 
 
