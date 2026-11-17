@@ -52,4 +52,5 @@
 // Taipo (layer 1), see taipo.c
 #define TAIPO_TAP_TIMEOUT 150
 #define TAIPO_CHORD_TERM 70
+#define COMBO_TERM_PER_COMBO
 #define TAIPO_NAV_LAYER 7

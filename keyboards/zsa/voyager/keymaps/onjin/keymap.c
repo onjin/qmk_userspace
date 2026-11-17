@@ -87,10 +87,11 @@ const uint16_t PROGMEM keymaps[][MATRIX_ROWS][MATRIX_COLS] = {
 };
 
 
-// Base layer combos. Brackets, Enter, Tab and Esc use the Taipo chords
-// (see taipo.c): QWER/ASDF and UIOP/JKL; play the Taipo finger keys, the
-// inner thumb (Backspace / Enter) is the Taipo symbol thumb and the outer
-// thumb (Space) is the Taipo shift thumb.
+// Base layer combos: the Taipo chords (see taipo.c) on QWER/ASDF and
+// UIOP/JKL;. The inner thumb (Backspace / Enter) is the Taipo symbol thumb,
+// the outer thumb (Space) the Taipo shift thumb. Only chords that need a
+// thumb or three fingers are mapped, two-finger letter chords would misfire
+// while typing.
 #define L_A MT(MOD_LGUI, KC_A)
 #define L_S MT(MOD_LALT, KC_S)
 #define L_D MT(MOD_LCTL, KC_D)
@@ -104,73 +105,162 @@ const uint16_t PROGMEM keymaps[][MATRIX_ROWS][MATRIX_COLS] = {
 #define R_IT LT(3, KC_ENTER)
 #define R_OT LT(2, KC_SPACE)
 
+// Generated from the Taipo chord table, left hand first.
 enum combo_events {
-  CB_ESC_OLD, CB_TAB_OLD, CB_DQUO, CB_QUOT,
-  // Taipo: finger + inner thumb
   CB_L_LPRN, CB_L_LBRC, CB_L_LCBR, CB_L_LT, CB_L_RPRN, CB_L_RBRC, CB_L_RCBR, CB_L_GT,
-  CB_R_LPRN, CB_R_LBRC, CB_R_LCBR, CB_R_LT, CB_R_RPRN, CB_R_RBRC, CB_R_RCBR, CB_R_GT,
-  // Taipo: Enter = E+T+O, Esc = Enter + outer thumb, Tab = I+N+S
-  CB_L_ENT, CB_L_ESC, CB_L_TAB, CB_R_ENT, CB_R_ESC, CB_R_TAB,
-  COMBO_LENGTH
+  CB_L_1, CB_L_2, CB_L_3, CB_L_4, CB_L_5, CB_L_6, CB_L_7, CB_L_8,
+  CB_L_9, CB_L_0, CB_L_AT, CB_L_HASH, CB_L_CIRC, CB_L_PLUS, CB_L_ASTR, CB_L_EQL,
+  CB_L_DLR, CB_L_AMPR, CB_L_PIPE, CB_L_PERC, CB_L_TILD, CB_L_GRV, CB_L_ENT, CB_L_ESC,
+  CB_L_TAB, CB_R_LPRN, CB_R_LBRC, CB_R_LCBR, CB_R_LT, CB_R_RPRN, CB_R_RBRC, CB_R_RCBR,
+  CB_R_GT, CB_R_1, CB_R_2, CB_R_3, CB_R_4, CB_R_5, CB_R_6, CB_R_7,
+  CB_R_8, CB_R_9, CB_R_0, CB_R_AT, CB_R_HASH, CB_R_CIRC, CB_R_PLUS, CB_R_ASTR,
+  CB_R_EQL, CB_R_DLR, CB_R_AMPR, CB_R_PIPE, CB_R_PERC, CB_R_TILD, CB_R_GRV, CB_R_ENT,
+  CB_R_ESC, CB_R_TAB,
 };
-
-const uint16_t PROGMEM cb_esc_old[] = { L_S, L_D, COMBO_END};
-const uint16_t PROGMEM cb_tab_old[] = { KC_W, KC_E, COMBO_END};
-const uint16_t PROGMEM cb_dquo[]    = { R_SC, R_L, COMBO_END};
-const uint16_t PROGMEM cb_quot[]    = { KC_P, KC_O, COMBO_END};
 
 const uint16_t PROGMEM cb_l_lprn[] = { L_F, L_IT, COMBO_END};
 const uint16_t PROGMEM cb_l_lbrc[] = { L_D, L_IT, COMBO_END};
 const uint16_t PROGMEM cb_l_lcbr[] = { L_S, L_IT, COMBO_END};
-const uint16_t PROGMEM cb_l_lt[]   = { L_A, L_IT, COMBO_END};
+const uint16_t PROGMEM cb_l_lt[] = { L_A, L_IT, COMBO_END};
 const uint16_t PROGMEM cb_l_rprn[] = { KC_R, L_IT, COMBO_END};
 const uint16_t PROGMEM cb_l_rbrc[] = { KC_E, L_IT, COMBO_END};
 const uint16_t PROGMEM cb_l_rcbr[] = { KC_W, L_IT, COMBO_END};
-const uint16_t PROGMEM cb_l_gt[]   = { KC_Q, L_IT, COMBO_END};
-const uint16_t PROGMEM cb_r_lprn[] = { R_J, R_IT, COMBO_END};
-const uint16_t PROGMEM cb_r_lbrc[] = { R_K, R_IT, COMBO_END};
-const uint16_t PROGMEM cb_r_lcbr[] = { R_L, R_IT, COMBO_END};
-const uint16_t PROGMEM cb_r_lt[]   = { R_SC, R_IT, COMBO_END};
-const uint16_t PROGMEM cb_r_rprn[] = { KC_U, R_IT, COMBO_END};
-const uint16_t PROGMEM cb_r_rbrc[] = { KC_I, R_IT, COMBO_END};
-const uint16_t PROGMEM cb_r_rcbr[] = { KC_O, R_IT, COMBO_END};
-const uint16_t PROGMEM cb_r_gt[]   = { KC_P, R_IT, COMBO_END};
-
+const uint16_t PROGMEM cb_l_gt[] = { KC_Q, L_IT, COMBO_END};
+const uint16_t PROGMEM cb_l_1[] = { L_F, L_S, L_IT, COMBO_END};
+const uint16_t PROGMEM cb_l_2[] = { L_D, L_S, L_IT, COMBO_END};
+const uint16_t PROGMEM cb_l_3[] = { L_D, L_A, L_IT, COMBO_END};
+const uint16_t PROGMEM cb_l_4[] = { L_S, L_A, L_IT, COMBO_END};
+const uint16_t PROGMEM cb_l_5[] = { KC_R, KC_E, L_IT, COMBO_END};
+const uint16_t PROGMEM cb_l_6[] = { KC_R, KC_W, L_IT, COMBO_END};
+const uint16_t PROGMEM cb_l_7[] = { KC_E, KC_W, L_IT, COMBO_END};
+const uint16_t PROGMEM cb_l_8[] = { KC_E, KC_Q, L_IT, COMBO_END};
+const uint16_t PROGMEM cb_l_9[] = { KC_W, KC_Q, L_IT, COMBO_END};
+const uint16_t PROGMEM cb_l_0[] = { L_F, L_D, L_IT, COMBO_END};
+const uint16_t PROGMEM cb_l_at[] = { L_F, L_A, L_IT, COMBO_END};
+const uint16_t PROGMEM cb_l_hash[] = { KC_R, KC_Q, L_IT, COMBO_END};
+const uint16_t PROGMEM cb_l_circ[] = { L_D, KC_Q, L_IT, COMBO_END};
+const uint16_t PROGMEM cb_l_plus[] = { KC_R, L_S, L_IT, COMBO_END};
+const uint16_t PROGMEM cb_l_astr[] = { L_F, KC_W, L_IT, COMBO_END};
+const uint16_t PROGMEM cb_l_eql[] = { KC_E, L_A, L_IT, COMBO_END};
+const uint16_t PROGMEM cb_l_dlr[] = { L_F, KC_Q, L_IT, COMBO_END};
+const uint16_t PROGMEM cb_l_ampr[] = { KC_R, L_A, L_IT, COMBO_END};
+const uint16_t PROGMEM cb_l_pipe[] = { L_D, KC_W, L_IT, COMBO_END};
+const uint16_t PROGMEM cb_l_perc[] = { KC_E, L_S, L_IT, COMBO_END};
+const uint16_t PROGMEM cb_l_tild[] = { L_F, KC_E, L_IT, COMBO_END};
+const uint16_t PROGMEM cb_l_grv[] = { KC_W, L_A, L_IT, COMBO_END};
 const uint16_t PROGMEM cb_l_ent[] = { L_F, L_D, L_S, COMBO_END};
 const uint16_t PROGMEM cb_l_esc[] = { L_F, L_D, L_S, L_OT, COMBO_END};
 const uint16_t PROGMEM cb_l_tab[] = { KC_R, KC_E, KC_W, COMBO_END};
+const uint16_t PROGMEM cb_r_lprn[] = { R_J, R_IT, COMBO_END};
+const uint16_t PROGMEM cb_r_lbrc[] = { R_K, R_IT, COMBO_END};
+const uint16_t PROGMEM cb_r_lcbr[] = { R_L, R_IT, COMBO_END};
+const uint16_t PROGMEM cb_r_lt[] = { R_SC, R_IT, COMBO_END};
+const uint16_t PROGMEM cb_r_rprn[] = { KC_U, R_IT, COMBO_END};
+const uint16_t PROGMEM cb_r_rbrc[] = { KC_I, R_IT, COMBO_END};
+const uint16_t PROGMEM cb_r_rcbr[] = { KC_O, R_IT, COMBO_END};
+const uint16_t PROGMEM cb_r_gt[] = { KC_P, R_IT, COMBO_END};
+const uint16_t PROGMEM cb_r_1[] = { R_J, R_L, R_IT, COMBO_END};
+const uint16_t PROGMEM cb_r_2[] = { R_K, R_L, R_IT, COMBO_END};
+const uint16_t PROGMEM cb_r_3[] = { R_K, R_SC, R_IT, COMBO_END};
+const uint16_t PROGMEM cb_r_4[] = { R_L, R_SC, R_IT, COMBO_END};
+const uint16_t PROGMEM cb_r_5[] = { KC_U, KC_I, R_IT, COMBO_END};
+const uint16_t PROGMEM cb_r_6[] = { KC_U, KC_O, R_IT, COMBO_END};
+const uint16_t PROGMEM cb_r_7[] = { KC_I, KC_O, R_IT, COMBO_END};
+const uint16_t PROGMEM cb_r_8[] = { KC_I, KC_P, R_IT, COMBO_END};
+const uint16_t PROGMEM cb_r_9[] = { KC_O, KC_P, R_IT, COMBO_END};
+const uint16_t PROGMEM cb_r_0[] = { R_J, R_K, R_IT, COMBO_END};
+const uint16_t PROGMEM cb_r_at[] = { R_J, R_SC, R_IT, COMBO_END};
+const uint16_t PROGMEM cb_r_hash[] = { KC_U, KC_P, R_IT, COMBO_END};
+const uint16_t PROGMEM cb_r_circ[] = { R_K, KC_P, R_IT, COMBO_END};
+const uint16_t PROGMEM cb_r_plus[] = { KC_U, R_L, R_IT, COMBO_END};
+const uint16_t PROGMEM cb_r_astr[] = { R_J, KC_O, R_IT, COMBO_END};
+const uint16_t PROGMEM cb_r_eql[] = { KC_I, R_SC, R_IT, COMBO_END};
+const uint16_t PROGMEM cb_r_dlr[] = { R_J, KC_P, R_IT, COMBO_END};
+const uint16_t PROGMEM cb_r_ampr[] = { KC_U, R_SC, R_IT, COMBO_END};
+const uint16_t PROGMEM cb_r_pipe[] = { R_K, KC_O, R_IT, COMBO_END};
+const uint16_t PROGMEM cb_r_perc[] = { KC_I, R_L, R_IT, COMBO_END};
+const uint16_t PROGMEM cb_r_tild[] = { R_J, KC_I, R_IT, COMBO_END};
+const uint16_t PROGMEM cb_r_grv[] = { KC_O, R_SC, R_IT, COMBO_END};
 const uint16_t PROGMEM cb_r_ent[] = { R_J, R_K, R_L, COMBO_END};
 const uint16_t PROGMEM cb_r_esc[] = { R_J, R_K, R_L, R_OT, COMBO_END};
 const uint16_t PROGMEM cb_r_tab[] = { KC_U, KC_I, KC_O, COMBO_END};
 
 combo_t key_combos[] = {
-    [CB_ESC_OLD] = COMBO(cb_esc_old, KC_ESCAPE),
-    [CB_TAB_OLD] = COMBO(cb_tab_old, KC_TAB),
-    [CB_DQUO]    = COMBO(cb_dquo, KC_DQUO),
-    [CB_QUOT]    = COMBO(cb_quot, KC_QUOTE),
     [CB_L_LPRN] = COMBO(cb_l_lprn, KC_LPRN),
     [CB_L_LBRC] = COMBO(cb_l_lbrc, KC_LBRC),
     [CB_L_LCBR] = COMBO(cb_l_lcbr, KC_LCBR),
-    [CB_L_LT]   = COMBO(cb_l_lt,   KC_LT),
+    [CB_L_LT] = COMBO(cb_l_lt, KC_LT),
     [CB_L_RPRN] = COMBO(cb_l_rprn, KC_RPRN),
     [CB_L_RBRC] = COMBO(cb_l_rbrc, KC_RBRC),
     [CB_L_RCBR] = COMBO(cb_l_rcbr, KC_RCBR),
-    [CB_L_GT]   = COMBO(cb_l_gt,   KC_GT),
-    [CB_R_LPRN] = COMBO(cb_r_lprn, KC_LPRN),
-    [CB_R_LBRC] = COMBO(cb_r_lbrc, KC_LBRC),
-    [CB_R_LCBR] = COMBO(cb_r_lcbr, KC_LCBR),
-    [CB_R_LT]   = COMBO(cb_r_lt,   KC_LT),
-    [CB_R_RPRN] = COMBO(cb_r_rprn, KC_RPRN),
-    [CB_R_RBRC] = COMBO(cb_r_rbrc, KC_RBRC),
-    [CB_R_RCBR] = COMBO(cb_r_rcbr, KC_RCBR),
-    [CB_R_GT]   = COMBO(cb_r_gt,   KC_GT),
+    [CB_L_GT] = COMBO(cb_l_gt, KC_GT),
+    [CB_L_1] = COMBO(cb_l_1, KC_1),
+    [CB_L_2] = COMBO(cb_l_2, KC_2),
+    [CB_L_3] = COMBO(cb_l_3, KC_3),
+    [CB_L_4] = COMBO(cb_l_4, KC_4),
+    [CB_L_5] = COMBO(cb_l_5, KC_5),
+    [CB_L_6] = COMBO(cb_l_6, KC_6),
+    [CB_L_7] = COMBO(cb_l_7, KC_7),
+    [CB_L_8] = COMBO(cb_l_8, KC_8),
+    [CB_L_9] = COMBO(cb_l_9, KC_9),
+    [CB_L_0] = COMBO(cb_l_0, KC_0),
+    [CB_L_AT] = COMBO(cb_l_at, KC_AT),
+    [CB_L_HASH] = COMBO(cb_l_hash, KC_HASH),
+    [CB_L_CIRC] = COMBO(cb_l_circ, KC_CIRC),
+    [CB_L_PLUS] = COMBO(cb_l_plus, KC_PLUS),
+    [CB_L_ASTR] = COMBO(cb_l_astr, KC_ASTR),
+    [CB_L_EQL] = COMBO(cb_l_eql, KC_EQL),
+    [CB_L_DLR] = COMBO(cb_l_dlr, KC_DLR),
+    [CB_L_AMPR] = COMBO(cb_l_ampr, KC_AMPR),
+    [CB_L_PIPE] = COMBO(cb_l_pipe, KC_PIPE),
+    [CB_L_PERC] = COMBO(cb_l_perc, KC_PERC),
+    [CB_L_TILD] = COMBO(cb_l_tild, KC_TILD),
+    [CB_L_GRV] = COMBO(cb_l_grv, KC_GRV),
     [CB_L_ENT] = COMBO(cb_l_ent, KC_ENTER),
     [CB_L_ESC] = COMBO(cb_l_esc, KC_ESCAPE),
     [CB_L_TAB] = COMBO(cb_l_tab, KC_TAB),
+    [CB_R_LPRN] = COMBO(cb_r_lprn, KC_LPRN),
+    [CB_R_LBRC] = COMBO(cb_r_lbrc, KC_LBRC),
+    [CB_R_LCBR] = COMBO(cb_r_lcbr, KC_LCBR),
+    [CB_R_LT] = COMBO(cb_r_lt, KC_LT),
+    [CB_R_RPRN] = COMBO(cb_r_rprn, KC_RPRN),
+    [CB_R_RBRC] = COMBO(cb_r_rbrc, KC_RBRC),
+    [CB_R_RCBR] = COMBO(cb_r_rcbr, KC_RCBR),
+    [CB_R_GT] = COMBO(cb_r_gt, KC_GT),
+    [CB_R_1] = COMBO(cb_r_1, KC_1),
+    [CB_R_2] = COMBO(cb_r_2, KC_2),
+    [CB_R_3] = COMBO(cb_r_3, KC_3),
+    [CB_R_4] = COMBO(cb_r_4, KC_4),
+    [CB_R_5] = COMBO(cb_r_5, KC_5),
+    [CB_R_6] = COMBO(cb_r_6, KC_6),
+    [CB_R_7] = COMBO(cb_r_7, KC_7),
+    [CB_R_8] = COMBO(cb_r_8, KC_8),
+    [CB_R_9] = COMBO(cb_r_9, KC_9),
+    [CB_R_0] = COMBO(cb_r_0, KC_0),
+    [CB_R_AT] = COMBO(cb_r_at, KC_AT),
+    [CB_R_HASH] = COMBO(cb_r_hash, KC_HASH),
+    [CB_R_CIRC] = COMBO(cb_r_circ, KC_CIRC),
+    [CB_R_PLUS] = COMBO(cb_r_plus, KC_PLUS),
+    [CB_R_ASTR] = COMBO(cb_r_astr, KC_ASTR),
+    [CB_R_EQL] = COMBO(cb_r_eql, KC_EQL),
+    [CB_R_DLR] = COMBO(cb_r_dlr, KC_DLR),
+    [CB_R_AMPR] = COMBO(cb_r_ampr, KC_AMPR),
+    [CB_R_PIPE] = COMBO(cb_r_pipe, KC_PIPE),
+    [CB_R_PERC] = COMBO(cb_r_perc, KC_PERC),
+    [CB_R_TILD] = COMBO(cb_r_tild, KC_TILD),
+    [CB_R_GRV] = COMBO(cb_r_grv, KC_GRV),
     [CB_R_ENT] = COMBO(cb_r_ent, KC_ENTER),
     [CB_R_ESC] = COMBO(cb_r_esc, KC_ESCAPE),
     [CB_R_TAB] = COMBO(cb_r_tab, KC_TAB),
 };
+
+// Three- and four-key chords get the Taipo chord term. QMK waits for the
+// longest term of all candidates, so finger + thumb waits for it too.
+uint16_t get_combo_term(uint16_t index, combo_t *combo) {
+    uint8_t n = 0;
+    for (const uint16_t *k = combo->keys; pgm_read_word(k) != COMBO_END; k++) n++;
+    return n >= 3 ? TAIPO_CHORD_TERM : COMBO_TERM;
+}
 
 
 
